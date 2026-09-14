@@ -64,6 +64,9 @@ input::placeholder{color:#6d76a0}
 .badge.pending{background:rgba(245,175,25,.2);color:#ffd479}
 .badge.active{background:rgba(56,239,125,.18);color:#7ff0b0}
 .badge.revoked{background:rgba(255,107,107,.18);color:#ffb1b1}
+.badge.devtype{background:rgba(92,73,223,.22);color:#c3bcff}
+.school-line{font-size:13.5px;color:#e8edff;margin-top:4px;line-height:1.8}
+.school-line b{color:#ffd479}
 .chipbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .chip{padding:7px 15px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#c3cae4;
   font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
@@ -306,6 +309,7 @@ window.loadOnce = function(){
 };
 
 const STATUS = { pending:'قيد الانتظار', active:'مفعّل', revoked:'مُلغى' };
+const DEVTYPE = { mobile:'📱 موبايل', tablet:'📟 تابلت', desktop:'💻 حاسوب', unknown:'🔲 جهاز' };
 
 window.setFilter = function(f){
   filter = f;
@@ -340,15 +344,16 @@ function render(){
   $('stRevoked').textContent = all.filter(d => d.status==='revoked').length;
   if(!rows.length){ $('list').innerHTML = '<div class="empty">لا توجد أجهزة مطابقة.<br>بمجرد أن يفتح الزبون التطبيق سيظهر طلبه هنا تلقائياً.</div>'; return; }
 
+  try{
   $('list').innerHTML = rows.map(([code, d]) => {
     const st = d.status || 'pending';
     const checked = selected.has(code) ? 'checked' : '';
-    const dtype = DEVTYPE[d.deviceType] || DEVTYPE.unknown;
+    const dtype = (typeof DEVTYPE !== 'undefined') ? (DEVTYPE[d.deviceType] || DEVTYPE.unknown) : '🔲 جهاز';
     return '<div class="dev s-' + st + '">' +
       '<input type="checkbox" data-code="' + esc(code) + '" ' + checked + ' onchange="toggleOne(this)" style="width:auto;margin-top:4px">' +
       '<div class="dev-main">' +
         '<span class="dev-code">' + esc(d.code || code) + '</span>' +
-        '<span class="badge devtype">' + dtype + '</span>' +
+        '<span class="badge devtype">' + (typeof DEVTYPE !== 'undefined' ? (DEVTYPE[d.deviceType] || DEVTYPE.unknown) : '🔲 جهاز') + '</span>' +
         '<span class="badge ' + st + '">' + STATUS[st] + '</span>' +
         '<div class="school-line">' +
           (d.school ? '🏫 <b>' + esc(d.school) + '</b>' : '🏫 <span style="opacity:.6">مدرسة غير مسجلة بعد</span>') +
@@ -373,6 +378,9 @@ function render(){
       '</div>' +
     '</div>';
   }).join('');
+  }catch(err){
+    $('list').innerHTML = '<div class="empty" style="color:#ffb1b1">⚠️ خطأ في عرض القائمة: ' + esc(String(err && err.message || err)) + '<br>أعد تحميل الصفحة وأخبر الدعم بهذه الرسالة.</div>';
+  }
 }
 window.toggleOne = function(cb){
   cb.checked ? selected.add(cb.dataset.code) : selected.delete(cb.dataset.code);

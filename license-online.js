@@ -23,6 +23,7 @@ let fbDb = null;
 let dbModule = null;
 let pollTimer = null;
 let inFlight = false;
+let SESSION_LICENSE = null;   /* رخصة مؤقتة بالجلسة إذا تعذّر الحفظ المحلي (ذاكرة ممتلئة) */
 
 const state = {
   ready: false,
@@ -82,10 +83,16 @@ function signatureFor(device, grantedAt) {
   return hashWide(device + '|' + APP_ID + '|' + String(grantedAt), 4);
 }
 function localLicenseValid() {
+  const device = deviceClean();
+  if (!device) return false;
+  /* 1) رخصة الجلسة (تعمل حتى لو التخزين المحلي معطل) */
+  if (typeof SESSION_LICENSE !== 'undefined' && SESSION_LICENSE &&
+      SESSION_LICENSE.app === APP_ID && SESSION_LICENSE.device === device &&
+      SESSION_LICENSE.sig === signatureFor(device, SESSION_LICENSE.grantedAt || '')) return true;
+  /* 2) الرخصة المحفوظة دائماً */
   const rec = readJSON(LICENSE_KEY);
   if (!rec || rec.app !== APP_ID) return false;
-  const device = deviceClean();
-  if (!device || rec.device !== device) return false;
+  if (rec.device !== device) return false;
   return rec.sig === signatureFor(device, rec.grantedAt || '');
 }
 function grantLocal(info) {
