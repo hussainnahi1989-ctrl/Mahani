@@ -349,12 +349,28 @@ function render(){
     const st = d.status || 'pending';
     const checked = selected.has(code) ? 'checked' : '';
     const dtype = (typeof DEVTYPE !== 'undefined') ? (DEVTYPE[d.deviceType] || DEVTYPE.unknown) : '🔲 جهاز';
+    let expBadge = '';
+    if(st === 'active'){
+      const ex = Number(d.expiresAt || 0);
+      if(ex){
+        if(Date.now() > ex){
+          expBadge = '<span class="badge exp-soon">⛔ منتهي ' + fmtDate(ex) + ' — يحتاج تجديد</span>';
+        }else{
+          const left = Math.ceil((ex - Date.now()) / 86400000);
+          const cls = left <= 7 ? 'exp-soon' : (left <= 30 ? 'exp-warn' : 'exp');
+          expBadge = '<span class="badge ' + cls + '">⏰ حتى ' + fmtDate(ex) + ' (متبقي ' + left + ' يوم)</span>';
+        }
+      }else{
+        expBadge = '<span class="badge exp">♾ دائم</span>';
+      }
+    }
     return '<div class="dev s-' + st + '">' +
       '<input type="checkbox" data-code="' + esc(code) + '" ' + checked + ' onchange="toggleOne(this)" style="width:auto;margin-top:4px">' +
       '<div class="dev-main">' +
         '<span class="dev-code">' + esc(d.code || code) + '</span>' +
         '<span class="badge devtype">' + (typeof DEVTYPE !== 'undefined' ? (DEVTYPE[d.deviceType] || DEVTYPE.unknown) : '🔲 جهاز') + '</span>' +
         '<span class="badge ' + st + '">' + STATUS[st] + '</span>' +
+        expBadge +
         '<div class="school-line">' +
           (d.school ? '🏫 <b>' + esc(d.school) + '</b>' : '🏫 <span style="opacity:.6">مدرسة غير مسجلة بعد</span>') +
           (d.principal ? ' — 👤 المدير: <b>' + esc(d.principal) + '</b>' : '') +
@@ -367,10 +383,24 @@ function render(){
           (d.origin ? '<br>🌐 ' + esc(d.origin) : '') +
         '</div>' +
       '</div>' +
-      '<div class="dev-actions">' +
-        (st !== 'active'   ? '<button class="btn b-green b-sm" onclick="act(\'' + esc(code) + '\',\'active\')">✓ تفعيل</button>' : '') +
-        (st !== 'revoked'  ? '<button class="btn b-red b-sm" onclick="act(\'' + esc(code) + '\',\'revoked\')">🚫 إلغاء</button>' : '') +
-        (st !== 'pending'  ? '<button class="btn b-ghost b-sm" onclick="act(\'' + esc(code) + '\',\'pending\')">↩ للانتظار</button>' : '') +
+      '<div class="dev-actions planrow">' +
+        (st !== 'active'
+          ? '<button class="btn b-green b-sm" onclick="act(\'' + esc(code) + '\',\'active\',30)">📅 شهر</button>' +
+            '<button class="btn b-green b-sm" onclick="act(\'' + esc(code) + '\',\'active\',90)">🗓 ٣ أشهر</button>' +
+            '<button class="btn b-green b-sm" onclick="act(\'' + esc(code) + '\',\'active\',365)">📆 سنة</button>' +
+            '<button class="btn b-green b-sm" onclick="act(\'' + esc(code) + '\',\'active\',0)">♾ دائم</button>'
+          : (function(){
+              var ex = Number(d.expiresAt || 0);
+              var base = Math.max(Date.now(), ex);
+              return '<button class="btn b-ghost b-sm" onclick="renew(\'' + esc(code) + '\',30)">+ شهر</button>' +
+                     '<button class="btn b-ghost b-sm" onclick="renew(\'' + esc(code) + '\',90)">+ ٣ أشهر</button>' +
+                     '<button class="btn b-ghost b-sm" onclick="renew(\'' + esc(code) + '\',365)">+ سنة</button>' +
+                     '<button class="btn b-ghost b-sm" onclick="renew(\'' + esc(code) + '\',0)">→ دائم</button>';
+            })()
+        ) +
+        (st !== 'revoked'  ? '<button class="btn b-red b-sm" onclick="act(\'' + esc(code) + '\',\'revoked\',0)">🚫 إلغاء</button>' : '') +
+        (st !== 'pending'  ? '<button class="btn b-ghost b-sm" onclick="act(\'' + esc(code) + '\',\'pending\',0)">↩ للانتظار</button>' : '') +
+        '<button class="btn b-ghost b-sm" onclick="editInfo(\'' + esc(code) + '\')">✏️ البيانات</button>' +
         '<button class="btn b-ghost b-sm" onclick="setNote(\'' + esc(code) + '\')">📝 ملاحظة</button>' +
         (d.phone ? '<button class="btn b-ghost b-sm" onclick="wa(\'' + esc(String(d.phone).replace(/[^0-9]/g,'')) + '\')">💬 واتساب</button>' : '') +
         '<button class="btn b-ghost b-sm" onclick="copyText(\'' + esc(d.code || code) + '\')">📋 نسخ الرمز</button>' +
@@ -385,12 +415,44 @@ function render(){
 window.toggleOne = function(cb){
   cb.checked ? selected.add(cb.dataset.code) : selected.delete(cb.dataset.code);
 };
-window.act = async function(code, status){
+window.act = async function(code, status, days){
   const patch = { status: status, updatedAt: Date.now() };
-  if(status === 'active') patch.activatedAt = Date.now();
-  if(status === 'revoked') patch.revokedAt = Date.now();
+  if(status === 'active'){
+    patch.activatedAt = Date.now();
+    const dnum = Number(days || 0);
+    patch.expiresAt = dnum > 0 ? Date.now() + dnum * 86400000 : 0;
+    patch.plan = dnum === 0 ? 'دائم' : (dnum <= 31 ? 'شهري' : (dnum <= 91 ? 'ثلاثة أشهر' : 'سنوي'));
+  }
+  if(status === 'revoked'){ patch.revokedAt = Date.now(); patch.expiresAt = 0; patch.plan = ''; }
   try{ await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), patch); }
   catch(e){ alert('تعذّر التحديث: ' + (e.message || e)); }
+};
+window.renew = async function(code, days){
+  const cur = devices[code] || {};
+  const ex = Number(cur.expiresAt || 0);
+  const base = Math.max(Date.now(), ex);
+  const dnum = Number(days || 0);
+  const patch = { updatedAt: Date.now(), status: 'active' };
+  patch.expiresAt = dnum > 0 ? base + dnum * 86400000 : 0;
+  patch.plan = dnum === 0 ? 'دائم' : (dnum <= 31 ? 'شهري' : (dnum <= 91 ? 'ثلاثة أشهر' : 'سنوي'));
+  if(!ex) patch.activatedAt = Date.now();
+  try{ await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), patch); }
+  catch(e){ alert('تعذّر التجديد: ' + (e.message || e)); }
+};
+window.editInfo = async function(code){
+  const d = devices[code] || {};
+  const school = prompt('اسم المدرسة:', d.school || '');
+  if(school === null) return;
+  const principal = prompt('اسم المدير:', d.principal || '');
+  if(principal === null) return;
+  const phone = prompt('هاتف الزبون (اختياري):', d.phone || '');
+  if(phone === null) return;
+  try{
+    await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), {
+      school: school.slice(0,120), principal: principal.slice(0,120),
+      phone: phone.slice(0,40), updatedAt: Date.now()
+    });
+  }catch(e){ alert('تعذّر الحفظ: ' + (e.message || e)); }
 };
 window.setNote = async function(code){
   const cur = (devices[code] && devices[code].note) || '';
@@ -406,12 +468,18 @@ window.delDev = async function(code){
 };
 window.bulk = async function(status){
   if(!selected.size){ alert('لم تحدد أي جهاز.'); return; }
-  if(!confirm('تنفيذ «' + STATUS[status] + '» على ' + selected.size + ' جهاز؟')) return;
-  const patch = { status: status, updatedAt: Date.now() };
-  if(status === 'active') patch.activatedAt = Date.now();
-  if(status === 'revoked') patch.revokedAt = Date.now();
+  const sel = document.getElementById('bulkPlan');
+  const days = Number((sel && sel.value) || 365);
+  const planName = days === 0 ? 'دائم' : (days <= 31 ? 'شهري' : (days <= 91 ? 'ثلاثة أشهر' : 'سنوي'));
+  if(!confirm('تنفيذ «' + STATUS[status] + '» (' + planName + ') على ' + selected.size + ' جهاز؟')) return;
   const updates = {};
-  selected.forEach(code => { updates['apps/' + APP_ID + '/devices/' + code] = Object.assign({}, devices[code] || {}, patch); });
+  selected.forEach(code => {
+    const dev = Object.assign({}, devices[code] || {});
+    dev.status = status; dev.updatedAt = Date.now();
+    if(status === 'active'){ dev.activatedAt = Date.now(); dev.expiresAt = days > 0 ? Date.now() + days * 86400000 : 0; dev.plan = planName; }
+    if(status === 'revoked'){ dev.revokedAt = Date.now(); dev.expiresAt = 0; dev.plan = ''; }
+    updates['apps/' + APP_ID + '/devices/' + code] = dev;
+  });
   try{
     await update(ref(db), updates);
     selected.clear();

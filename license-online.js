@@ -103,6 +103,8 @@ function grantLocal(info) {
     app: APP_ID,
     device: device,
     grantedAt: grantedAt,
+    expiresAt: Number(info && info.expiresAt) || 0,
+    plan: String((info && info.plan) || ''),
     sig: signatureFor(device, grantedAt),
     source: 'online',
     note: (info && info.note) || ''
@@ -217,9 +219,30 @@ async function checkNow(options) {
     }
 
     if (data.status === 'active') {
-      grantLocal(data);
+      const expiresAt = Number(data.expiresAt || 0);
+
+      /* انتهت الصلاحية؟ يُقفل التطبيق حتى التجديد */
+      if (expiresAt && now > expiresAt) {
+        revokeLocal();
+        writeJSON(META_KEY, { lastCheck: now });
+        setStatus('expired', '⏰ انتهت صلاحية التفعيل — يرجى التجديد من الإدارة.');
+        try { if (typeof syncActivationUI === 'function') syncActivationUI(); } catch (e) {}
+        return 'expired';
+      }
+
+      grantLocal({ expiresAt: expiresAt, plan: data.plan, note: data.note });
+
+      /* مزامنة بيانات المدرسة/المدير/الهاتف/نوع الجهاز حتى بعد التفعيل (حقول مسموح بها في القواعد) */
+      const dtype = detectDeviceType();
+      const patch = { lastSeenAt: now };
+      if (info.school && info.school !== String(data.school || '')) patch.school = info.school;
+      if (info.principal && info.principal !== String(data.principal || '')) patch.principal = info.principal;
+      if (info.phone && info.phone !== String(data.phone || '')) patch.phone = info.phone;
+      if (!data.deviceType || data.deviceType !== dtype) patch.deviceType = dtype;
+      try { await mod.update(node, patch); } catch (e) {}
+
       writeJSON(META_KEY, { lastCheck: now, lastSeenAt: now });
-      setStatus('active', 'التطبيق مُفعّل ✓');
+      setStatus('active', expiresAt ? ('التطبيق مُفعّل ✓ — حتى ' + new Date(expiresAt).toLocaleDateString('ar-IQ')) : 'التطبيق مُفعّل ✓ (دائم)');
       onActivated();
       return 'active';
     }
@@ -371,11 +394,8 @@ function boot() {
   }
   if (active) {
     setStatus('active', TEXTS.active);
-    const meta = readJSON(META_KEY) || {};
-    const hours = Number(CFG.revokeCheckHours || 0);
-    const gap = (hours || 6) * 3600 * 1000;
-    const due = CFG.enforceRevocation && (!meta.lastCheck || (nowMs() - meta.lastCheck) > gap);
-    if (due) checkNow({});
+    /* فحص أولي دائماً عند الفتح: مزامنة بيانات المدرسة + فحص الانتهاء/الإلغاء */
+    checkNow({});
     schedule();
     return;
   }
