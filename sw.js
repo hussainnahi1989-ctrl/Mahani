@@ -7,9 +7,9 @@ const PRECACHE = [
   './manifest.webmanifest',
   './config.js',
   './license-online.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png'
 ];
 const CDN_CACHE = 'mahani-cdn-v1';
 
