@@ -109,6 +109,20 @@ function revokeLocal() {
   try { localStorage.removeItem(LICENSE_KEY); } catch (e) {}
 }
 
+/* ---------- نوع الجهاز ---------- */
+function detectDeviceType(){
+  try{
+    const ua = String(navigator.userAgent || '');
+    const uaData = navigator.userAgentData;
+    if (/iPad|Tablet|PlayBook|Silk/i.test(ua)) return 'tablet';
+    if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return 'tablet';
+    if (/Mobi|iPhone|iPod|Windows Phone/i.test(ua)) return 'mobile';
+    if (uaData && uaData.mobile === true) return 'mobile';
+    if (uaData && uaData.mobile === false) return 'desktop';
+    return 'desktop';
+  }catch(e){ return 'unknown'; }
+}
+
 /* ---------- بيانات المدرسة المرسلة مع الطلب ---------- */
 function schoolInfo() {
   const out = { school: '', principal: '', phone: '' };

@@ -343,14 +343,18 @@ function render(){
   $('list').innerHTML = rows.map(([code, d]) => {
     const st = d.status || 'pending';
     const checked = selected.has(code) ? 'checked' : '';
+    const dtype = DEVTYPE[d.deviceType] || DEVTYPE.unknown;
     return '<div class="dev s-' + st + '">' +
       '<input type="checkbox" data-code="' + esc(code) + '" ' + checked + ' onchange="toggleOne(this)" style="width:auto;margin-top:4px">' +
       '<div class="dev-main">' +
         '<span class="dev-code">' + esc(d.code || code) + '</span>' +
+        '<span class="badge devtype">' + dtype + '</span>' +
         '<span class="badge ' + st + '">' + STATUS[st] + '</span>' +
+        '<div class="school-line">' +
+          (d.school ? '🏫 <b>' + esc(d.school) + '</b>' : '🏫 <span style="opacity:.6">مدرسة غير مسجلة بعد</span>') +
+          (d.principal ? ' — 👤 المدير: <b>' + esc(d.principal) + '</b>' : '') +
+        '</div>' +
         '<div class="dev-meta">' +
-          (d.school ? '🏫 <b>' + esc(d.school) + '</b>' : '🏫 <span style="opacity:.6">مدرسة غير مسجلة</span>') +
-          (d.principal ? ' — المدير: <b>' + esc(d.principal) + '</b>' : '') + '<br>' +
           (d.phone ? '📞 <b dir="ltr">' + esc(d.phone) + '</b> — ' : '') +
           'آخر ظهور: ' + ago(d.lastSeenAt || d.createdAt) + ' — أول طلب: ' + fmtDate(d.createdAt) +
           (d.activatedAt ? ' — تاريخ التفعيل: ' + fmtDate(d.activatedAt) : '') +
