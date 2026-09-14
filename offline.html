@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الجدول الأسبوعي — بدون إنترنت</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;display:grid;place-items:center;padding:24px;
+       background:linear-gradient(135deg,#041038,#123a7a);color:#eaf2ff;text-align:center}
+  .card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:34px 26px;max-width:420px;backdrop-filter:blur(8px)}
+  .icon{font-size:52px;margin-bottom:14px}
+  h1{font-size:21px;margin-bottom:10px}
+  p{font-size:14px;line-height:1.9;color:#b8cdf0}
+  button{margin-top:20px;padding:12px 26px;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;
+         background:linear-gradient(135deg,#5c49df,#4130b8);color:#fff}
+  img{width:92px;height:92px;border-radius:20px;margin-bottom:12px;border:2px solid rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img src="icons/icon-192.png" alt="">
+    <div class="icon">📴</div>
+    <h1>لا يوجد اتصال بالإنترنت</h1>
+    <p>لم يتم تحميل التطبيق بعد على هذا الجهاز. افتح الرابط مرة واحدة وأنت متصل بالإنترنت،
+       ثم ثبّته على الشاشة الرئيسية ليعمل بعدها بدون إنترنت.</p>
+    <button type="button" onclick="location.reload()">⟳ إعادة المحاولة</button>
+  </div>
+</body>
+</html>

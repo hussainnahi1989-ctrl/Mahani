@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "apps": {
+      "$appId": {
+        "devices": {
+          ".read": "auth != null && auth.uid === 'ADMIN_UID_HERE'",
+          ".indexOn": ["status", "lastSeenAt", "createdAt"],
+          "$deviceCode": {
+            ".read": "true",
+            ".write": "auth != null && auth.uid === 'ADMIN_UID_HERE' || !data.exists() && newData.child('status').val() === 'pending' || data.exists() && data.child('status').val() === 'pending' && newData.child('status').val() === 'pending'",
+            ".validate": "newData.hasChildren(['status', 'updatedAt']) && $deviceCode.matches(/^[2-9A-HJ-NP-Z]{12}$/) && newData.child('status').val().matches(/^(pending|active|revoked)$/) && (!newData.child('device').exists() || newData.child('device').val().length <= 24) && (!newData.child('school').exists() || newData.child('school').val().length <= 120) && (!newData.child('principal').exists() || newData.child('principal').val().length <= 120) && (!newData.child('phone').exists() || newData.child('phone').val().length <= 40) && (!newData.child('note').exists() || newData.child('note').val().length <= 300) && (!newData.child('ua').exists() || newData.child('ua').val().length <= 200)"
+          }
+        }
+      }
+    }
+  }
+}

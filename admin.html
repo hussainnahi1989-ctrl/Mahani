@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>لوحة تحكم التفعيل — الجدول الأسبوعي للمدارس المهنية</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg1:#0f0c29; --bg2:#302b63; --bg3:#24243e;
+  --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.12);
+  --gold:#f5af19; --green:#38ef7d; --red:#ff6b6b; --blue:#5c49df;
+}
+body{font-family:'Segoe UI',Tahoma,'Noto Kufi Arabic',sans-serif;min-height:100vh;color:#fff;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3));padding:18px}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-weight:800}
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand img{width:46px;height:46px;border-radius:13px;border:2px solid rgba(245,175,25,.45)}
+.brand h1{font-size:20px;background:linear-gradient(135deg,#f5af19,#f12711);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.brand p{font-size:12px;color:#9aa4c7;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px;backdrop-filter:blur(10px)}
+.card h3{font-size:15px;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+label{display:block;font-size:12px;color:#b9c1dd;margin-bottom:6px}
+input[type=text],input[type=email],input[type=password],input[type=search],select{
+  width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.08);
+  color:#fff;font-family:inherit;font-size:14px;outline:none}
+input:focus,select:focus{border-color:var(--gold)}
+input::placeholder{color:#6d76a0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;border:none;border-radius:11px;
+  font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:transform .15s,filter .15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.b-primary{background:linear-gradient(135deg,#f5af19,#f12711);color:#fff}
+.b-green{background:linear-gradient(135deg,#11998e,#38ef7d);color:#05261a}
+.b-blue{background:linear-gradient(135deg,#5c49df,#4130b8);color:#fff}
+.b-red{background:linear-gradient(135deg,#c62828,#ff6b6b);color:#fff}
+.b-ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid var(--line)}
+.b-sm{padding:6px 11px;font-size:11.5px;border-radius:8px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;text-align:center}
+.stat b{display:block;font-size:24px;margin-bottom:4px}
+.stat span{font-size:11.5px;color:#9aa4c7}
+.notice{background:rgba(92,73,223,.16);border:1px solid rgba(92,73,223,.4);border-radius:12px;padding:13px;font-size:12.5px;line-height:1.9;color:#d9dcff}
+.notice.warn{background:rgba(245,175,25,.13);border-color:rgba(245,175,25,.4);color:#ffe9be}
+.err{color:#ffb1b1;background:rgba(198,40,40,.18);border:1px solid rgba(255,107,107,.45);border-radius:11px;padding:11px;font-size:12.5px;line-height:1.8;display:none}
+.err.show{display:block}
+/* ===== قائمة الأجهزة ===== */
+.dev{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+  border-radius:14px;padding:13px 14px;margin-bottom:10px;flex-wrap:wrap;border-inline-start:4px solid #888}
+.dev.s-pending{border-inline-start-color:var(--gold);background:rgba(245,175,25,.07)}
+.dev.s-active{border-inline-start-color:#38ef7d;background:rgba(56,239,125,.06)}
+.dev.s-revoked{border-inline-start-color:var(--red);background:rgba(255,107,107,.07)}
+.dev-main{flex:1 1 260px;min-width:0}
+.dev-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px;font-weight:800;letter-spacing:.06em;color:#fff;direction:ltr;display:inline-block}
+.dev-meta{font-size:12px;color:#a8b1d0;margin-top:5px;line-height:1.85;word-break:break-word}
+.dev-meta b{color:#dfe5f7;font-weight:700}
+.dev-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;margin-inline-start:8px}
+.badge.pending{background:rgba(245,175,25,.2);color:#ffd479}
+.badge.active{background:rgba(56,239,125,.18);color:#7ff0b0}
+.badge.revoked{background:rgba(255,107,107,.18);color:#ffb1b1}
+.chipbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{padding:7px 15px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#c3cae4;
+  font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.chip.on{background:linear-gradient(135deg,#f5af19,#f12711);color:#fff;border-color:transparent}
+.empty{text-align:center;color:#8d96ba;font-size:13px;padding:26px 10px;line-height:2}
+code.uid{font-family:ui-monospace,Consolas,monospace;background:rgba(0,0,0,.35);padding:4px 9px;border-radius:7px;font-size:12px;color:var(--green);direction:ltr;display:inline-block;word-break:break-all}
+.hide{display:none !important}
+a{color:#9db4ff}
+.small{font-size:11.5px;color:#8d96ba;line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="">
+      <div>
+        <h1>لوحة تحكم التفعيل</h1>
+        <p id="subTitle">الجدول الأسبوعي للمدارس المهنية — تفعيل أونلاين</p>
+      </div>
+    </div>
+    <div class="row" id="topActions" style="display:none">
+      <span class="small">UID: <code class="uid" id="uidChip">—</code></span>
+      <button class="btn b-ghost b-sm" onclick="copyUid()">📋 نسخ UID</button>
+      <button class="btn b-red b-sm" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+
+  <!-- ===== شاشة الدخول ===== -->
+  <div class="card" id="loginCard">
+    <h3>🔐 دخول الإدارة</h3>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div><label>البريد الإلكتروني</label><input type="email" id="email" autocomplete="username" placeholder="admin@example.com" dir="ltr"></div>
+      <div><label>كلمة المرور</label><input type="password" id="password" autocomplete="current-password" placeholder="••••••••" dir="ltr"></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn b-primary" id="loginBtn" onclick="doLogin()">دخول</button>
+      <span class="small">سجّل الدخول بحسابك في Firebase Authentication (الذي أنشأته لنفسك).</span>
+    </div>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <!-- ===== شاشة الإدارة ===== -->
+  <div id="adminView" class="hide">
+
+    <div class="card" id="rulesCard">
+      <h3>⚙️ خطوة واحدة متبقية: صلاحيات قاعدة البيانات</h3>
+      <p class="small" style="margin-bottom:10px">
+        انسخ الـ UID الظاهر فوق، ثم في Firebase Console ← Realtime Database ← Rules استبدل
+        <code class="uid">ADMIN_UID_HERE</code> به واضغط Publish. بدون هذه الخطوة لن تتمكن اللوحة من القراءة أو التفعيل.
+      </p>
+      <button class="btn b-ghost b-sm" onclick="copyRulesHint()">📋 نسخ UID للقواعد</button>
+    </div>
+
+    <div class="grid" style="margin-bottom:16px">
+      <div class="stat"><b id="stAll">0</b><span>إجمالي الأجهزة</span></div>
+      <div class="stat"><b id="stPending" style="color:var(--gold)">0</b><span>قيد الانتظار</span></div>
+      <div class="stat"><b id="stActive" style="color:var(--green)">0</b><span>مفعّلة</span></div>
+      <div class="stat"><b id="stRevoked" style="color:var(--red)">0</b><span>ملغاة</span></div>
+    </div>
+
+    <div class="card">
+      <h3>📱 الأجهزة وطلبات التفعيل</h3>
+      <div class="chipbar">
+        <button class="chip on" data-f="all" onclick="setFilter('all')">الكل</button>
+        <button class="chip" data-f="pending" onclick="setFilter('pending')">قيد الانتظار</button>
+        <button class="chip" data-f="active" onclick="setFilter('active')">مفعّلة</button>
+        <button class="chip" data-f="revoked" onclick="setFilter('revoked')">ملغاة</button>
+      </div>
+      <input type="search" id="search" placeholder="🔍 ابحث برمز الجهاز أو اسم المدرسة أو الهاتف أو الملاحظة…" oninput="render()" style="margin-bottom:12px">
+      <div class="row" style="margin-bottom:12px">
+        <label style="display:inline-flex;align-items:center;gap:7px;margin:0;font-size:12.5px;color:#dfe5f7">
+          <input type="checkbox" id="selAll" onchange="toggleSelectAll(this)" style="width:auto"> تحديد الكل الظاهر
+        </label>
+        <button class="btn b-green b-sm" onclick="bulk('active')">✓ تفعيل المحدد</button>
+        <button class="btn b-red b-sm" onclick="bulk('revoked')">🚫 إلغاء المحدد</button>
+        <button class="btn b-ghost b-sm" onclick="bulkDelete()">🗑 حذف المحدد</button>
+        <button class="btn b-ghost b-sm" onclick="loadOnce()">⟳ تحديث</button>
+      </div>
+      <div id="list"><div class="empty">جارٍ الاتصال…</div></div>
+    </div>
+
+    <div class="card">
+      <h3>🔑 مفتاح تفعيل يدوي (للزبون بدون إنترنت)</h3>
+      <div class="row">
+        <input type="text" id="offlineDevice" placeholder="رمز الجهاز: VTS-XXXX-XXXX-XXXX" dir="ltr" style="flex:1 1 260px">
+        <button class="btn b-primary" onclick="genOfflineKey()">توليد المفتاح</button>
+        <button class="btn b-ghost" onclick="copyEl('offlineKeyOut')">📋 نسخ</button>
+      </div>
+      <div id="offlineKeyOut" class="notice" style="margin-top:12px;direction:ltr;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:15px;color:var(--green)">—</div>
+    </div>
+
+    <div class="card">
+      <h3>🧩 الإعدادات</h3>
+      <div class="row">
+        <div style="flex:1 1 240px"><label>معرّف التطبيق في قاعدة البيانات</label>
+          <input type="text" id="appIdInput" dir="ltr"></div>
+        <button class="btn b-ghost" onclick="applyAppId()">تطبيق</button>
+      </div>
+      <p class="small" style="margin-top:10px">
+        قاعدة البيانات: <span id="dbUrl" class="small">—</span><br>
+        رابط التطبيق للزبائن: <a id="appLink" href="#" target="_blank" rel="noopener">—</a>
+      </p>
+    </div>
+
+  </div>
+
+  <div class="card hide" id="configCard">
+    <h3>⚠️ لم يتم إعداد Firebase بعد</h3>
+    <p class="small">
+      افتح ملف <b>config.js</b> الموجود بجانب هذه الصفحة، وضع إعدادات مشروع Firebase
+      (apiKey و databaseURL و projectId و appId …) ثم أعد تحميل الصفحة.
+    </p>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script type="module">
+import { initializeApp }  from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence }
+  from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getDatabase, ref, onValue, get, update, remove, set }
+  from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+
+const CFG = window.MAHANI_CONFIG || {};
+const APP_ID_DEFAULT = CFG.appId || 'vts-professional-timetable';
+let APP_ID = localStorage.getItem('mahani_admin_appid') || APP_ID_DEFAULT;
+
+let auth = null, db = null, currentUser = null;
+let devices = {};               // deviceCode -> data
+let filter = 'all';
+const selected = new Set();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = ms => {
+  if (!ms) return '—';
+  try { return new Date(Number(ms)).toLocaleString('ar-IQ', { dateStyle:'short', timeStyle:'short' }); }
+  catch (e) { return '—'; }
+};
+const ago = ms => {
+  if (!ms) return '—';
+  const d = Date.now() - Number(ms);
+  if (d < 60000) return 'الآن';
+  if (d < 3600000) return Math.floor(d/60000) + ' دقيقة';
+  if (d < 86400000) return Math.floor(d/3600000) + ' ساعة';
+  return Math.floor(d/86400000) + ' يوم';
+};
+
+/* ---------- تهيئة ---------- */
+function configOk(){
+  const c = CFG.firebase || {};
+  return /^https:\/\/[A-Za-z0-9-]+\.firebaseio\.com\/?$/.test(String(c.databaseURL||'')) ||
+         /^https:\/\/[A-Za-z0-9-]+\.[A-Za-z0-9.-]+\.firebaseio\.com\/?$/.test(String(c.databaseURL||''));
+}
+function boot(){
+  $('appIdInput').value = APP_ID;
+  $('dbUrl').textContent = (CFG.firebase && CFG.firebase.databaseURL) || 'غير محدد';
+  try{
+    const u = new URL('./index.html', location.href);
+    $('appLink').href = u.href; $('appLink').textContent = u.href;
+  }catch(e){}
+  if(!configOk()){ $('configCard').classList.remove('hide'); $('loginCard').classList.add('hide'); return; }
+  try{
+    const app = initializeApp(CFG.firebase);
+    auth = getAuth(app);
+    db = getDatabase(app);
+  }catch(e){
+    $('configCard').classList.remove('hide');
+    $('loginCard').classList.add('hide');
+    return;
+  }
+  setPersistence(auth, browserLocalPersistence).catch(()=>{});
+  onAuthStateChanged(auth, user => {
+    currentUser = user;
+    if(user){
+      $('uidChip').textContent = user.uid;
+      $('loginCard').classList.add('hide');
+      $('adminView').classList.remove('hide');
+      $('topActions').style.display = '';
+      subscribe();
+    }else{
+      $('loginCard').classList.remove('hide');
+      $('adminView').classList.add('hide');
+      $('topActions').style.display = 'none';
+      $('list').innerHTML = '<div class="empty">سجّل الدخول لعرض الأجهزة.</div>';
+    }
+  });
+}
+
+/* ---------- دخول / خروج ---------- */
+window.doLogin = async function(){
+  const email = $('email').value.trim();
+  const pass  = $('password').value;
+  const err = $('loginErr');
+  err.classList.remove('show');
+  if(!email || !pass){ err.textContent='أدخل البريد وكلمة المرور.'; err.classList.add('show'); return; }
+  $('loginBtn').disabled = true; $('loginBtn').textContent = '… جارٍ الدخول';
+  try{
+    await signInWithEmailAndPassword(auth, email, pass);
+    $('password').value = '';
+  }catch(e){
+    let msg = e && e.message ? e.message : String(e);
+    if(/auth\/invalid-credential|wrong-password/i.test(msg)) msg='البريد أو كلمة المرور غير صحيحة.';
+    if(/auth\/user-not-found/i.test(msg)) msg='لا يوجد مستخدم بهذا البريد.';
+    if(/auth\/api-key-not-valid/i.test(msg)) msg='مفتاح API غير صالح — راجع config.js';
+    if(/auth\/operation-not-allowed/i.test(msg)) msg='فعّل تسجيل الدخول بالبريد في Firebase Console ← Authentication ← Sign-in method';
+    err.textContent = msg; err.classList.add('show');
+  }finally{
+    $('loginBtn').disabled = false; $('loginBtn').textContent = 'دخول';
+  }
+};
+window.doLogout = function(){ if(confirm('تسجيل الخروج؟')) signOut(auth); };
+
+/* ---------- البيانات ---------- */
+let unsubscribe = null;
+function subscribe(){
+  if(unsubscribe) unsubscribe();
+  const node = ref(db, 'apps/' + APP_ID + '/devices');
+  unsubscribe = onValue(node, snap => {
+    devices = snap.exists() ? (snap.val() || {}) : {};
+    render();
+  }, err => {
+    $('list').innerHTML = '<div class="empty" style="color:#ffb1b1">تعذّر القراءة: ' + esc(err.message) +
+      '<br>تأكد أنك نشرت قواعد الأمان ووضعت UID الصحيح.</div>';
+  });
+}
+window.loadOnce = function(){
+  get(ref(db, 'apps/' + APP_ID + '/devices')).then(s => {
+    devices = s.exists() ? (s.val() || {}) : {}; render();
+  });
+};
+
+const STATUS = { pending:'قيد الانتظار', active:'مفعّل', revoked:'مُلغى' };
+
+window.setFilter = function(f){
+  filter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.f === f));
+  render();
+};
+window.toggleSelectAll = function(cb){
+  visibleList().forEach(([code]) => { cb.checked ? selected.add(code) : selected.delete(code); });
+  render();
+};
+function visibleList(){
+  const q = ($('search').value || '').trim().toLowerCase();
+  let rows = Object.entries(devices);
+  if(filter !== 'all') rows = rows.filter(([, d]) => (d.status || 'pending') === filter);
+  if(q) rows = rows.filter(([code, d]) =>
+    [code, d.code, d.school, d.principal, d.phone, d.note, d.origin].join(' ').toLowerCase().includes(q));
+  const rank = { pending:0, active:1, revoked:2 };
+  rows.sort((a, b) => {
+    const ra = rank[a[1].status || 'pending'], rb = rank[b[1].status || 'pending'];
+    if(ra !== rb) return ra - rb;
+    return Number(b[1].lastSeenAt || b[1].createdAt || 0) - Number(a[1].lastSeenAt || a[1].createdAt || 0);
+  });
+  return rows;
+}
+
+function render(){
+  const rows = visibleList();
+  const all = Object.values(devices);
+  $('stAll').textContent = all.length;
+  $('stPending').textContent = all.filter(d => (d.status||'pending')==='pending').length;
+  $('stActive').textContent  = all.filter(d => d.status==='active').length;
+  $('stRevoked').textContent = all.filter(d => d.status==='revoked').length;
+  if(!rows.length){ $('list').innerHTML = '<div class="empty">لا توجد أجهزة مطابقة.<br>بمجرد أن يفتح الزبون التطبيق سيظهر طلبه هنا تلقائياً.</div>'; return; }
+
+  $('list').innerHTML = rows.map(([code, d]) => {
+    const st = d.status || 'pending';
+    const checked = selected.has(code) ? 'checked' : '';
+    return '<div class="dev s-' + st + '">' +
+      '<input type="checkbox" data-code="' + esc(code) + '" ' + checked + ' onchange="toggleOne(this)" style="width:auto;margin-top:4px">' +
+      '<div class="dev-main">' +
+        '<span class="dev-code">' + esc(d.code || code) + '</span>' +
+        '<span class="badge ' + st + '">' + STATUS[st] + '</span>' +
+        '<div class="dev-meta">' +
+          (d.school ? '🏫 <b>' + esc(d.school) + '</b>' : '🏫 <span style="opacity:.6">مدرسة غير مسجلة</span>') +
+          (d.principal ? ' — المدير: <b>' + esc(d.principal) + '</b>' : '') + '<br>' +
+          (d.phone ? '📞 <b dir="ltr">' + esc(d.phone) + '</b> — ' : '') +
+          'آخر ظهور: ' + ago(d.lastSeenAt || d.createdAt) + ' — أول طلب: ' + fmtDate(d.createdAt) +
+          (d.activatedAt ? ' — تاريخ التفعيل: ' + fmtDate(d.activatedAt) : '') +
+          (d.note ? '<br>📝 ' + esc(d.note) : '') +
+          (d.origin ? '<br>🌐 ' + esc(d.origin) : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="dev-actions">' +
+        (st !== 'active'   ? '<button class="btn b-green b-sm" onclick="act(\'' + esc(code) + '\',\'active\')">✓ تفعيل</button>' : '') +
+        (st !== 'revoked'  ? '<button class="btn b-red b-sm" onclick="act(\'' + esc(code) + '\',\'revoked\')">🚫 إلغاء</button>' : '') +
+        (st !== 'pending'  ? '<button class="btn b-ghost b-sm" onclick="act(\'' + esc(code) + '\',\'pending\')">↩ للانتظار</button>' : '') +
+        '<button class="btn b-ghost b-sm" onclick="setNote(\'' + esc(code) + '\')">📝 ملاحظة</button>' +
+        (d.phone ? '<button class="btn b-ghost b-sm" onclick="wa(\'' + esc(String(d.phone).replace(/[^0-9]/g,'')) + '\')">💬 واتساب</button>' : '') +
+        '<button class="btn b-ghost b-sm" onclick="copyText(\'' + esc(d.code || code) + '\')">📋 نسخ الرمز</button>' +
+        '<button class="btn b-ghost b-sm" onclick="delDev(\'' + esc(code) + '\')">🗑 حذف</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+window.toggleOne = function(cb){
+  cb.checked ? selected.add(cb.dataset.code) : selected.delete(cb.dataset.code);
+};
+window.act = async function(code, status){
+  const patch = { status: status, updatedAt: Date.now() };
+  if(status === 'active') patch.activatedAt = Date.now();
+  if(status === 'revoked') patch.revokedAt = Date.now();
+  try{ await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), patch); }
+  catch(e){ alert('تعذّر التحديث: ' + (e.message || e)); }
+};
+window.setNote = async function(code){
+  const cur = (devices[code] && devices[code].note) || '';
+  const v = prompt('ملاحظة خاصة بك عن هذا الجهاز (اسم الزبون، المبلغ، تاريخ الاشتراك…):', cur);
+  if(v === null) return;
+  try{ await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), { note: v.slice(0,300), updatedAt: Date.now() }); }
+  catch(e){ alert('تعذّر الحفظ: ' + (e.message || e)); }
+};
+window.delDev = async function(code){
+  if(!confirm('حذف هذا الجهاز نهائياً من قاعدة البيانات؟')) return;
+  try{ await remove(ref(db, 'apps/' + APP_ID + '/devices/' + code)); selected.delete(code); }
+  catch(e){ alert('تعذّر الحذف: ' + (e.message || e)); }
+};
+window.bulk = async function(status){
+  if(!selected.size){ alert('لم تحدد أي جهاز.'); return; }
+  if(!confirm('تنفيذ «' + STATUS[status] + '» على ' + selected.size + ' جهاز؟')) return;
+  const patch = { status: status, updatedAt: Date.now() };
+  if(status === 'active') patch.activatedAt = Date.now();
+  if(status === 'revoked') patch.revokedAt = Date.now();
+  const updates = {};
+  selected.forEach(code => { updates['apps/' + APP_ID + '/devices/' + code] = Object.assign({}, devices[code] || {}, patch); });
+  try{
+    await update(ref(db), updates);
+    selected.clear();
+  }catch(e){ alert('تعذّر التنفيذ: ' + (e.message || e)); }
+};
+window.bulkDelete = async function(){
+  if(!selected.size){ alert('لم تحدد أي جهاز.'); return; }
+  if(!confirm('حذف ' + selected.size + ' جهاز نهائياً؟')) return;
+  for(const code of Array.from(selected)){
+    try{ await remove(ref(db, 'apps/' + APP_ID + '/devices/' + code)); }catch(e){}
+  }
+  selected.clear();
+};
+window.wa = function(phone){
+  if(!phone){ alert('لا يوجد رقم هاتف مسجل لهذا الجهاز.'); return; }
+  const msg = 'السلام عليكم، بخصوص تفعيل برنامج الجدول الأسبوعي للمدارس المهنية.';
+  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+};
+window.copyText = async function(t){
+  try{ await navigator.clipboard.writeText(t); }catch(e){ prompt('انسخ:', t); }
+};
+window.copyUid = function(){ window.copyText((currentUser && currentUser.uid) || ''); };
+window.copyRulesHint = function(){ window.copyText((currentUser && currentUser.uid) || ''); };
+window.copyEl = async function(id){
+  const t = $(id).textContent.trim();
+  if(!t || t === '—'){ return; }
+  window.copyText(t);
+};
+window.applyAppId = function(){
+  const v = $('appIdInput').value.trim();
+  if(!v) return;
+  APP_ID = v; localStorage.setItem('mahani_admin_appid', v);
+  selected.clear(); subscribe();
+};
+
+/* ---------- توليد مفتاح أوفلاين (نفس خوارزمية التطبيق) ---------- */
+const VTS_APP_ID = 'vts-professional-timetable';
+const VTS_SECRET = 'VTS-PROFESSIONAL-TIMETABLE-HN-2026-9B7';
+const VTS_ALPHA  = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+function vtsHash32(text){
+  let h = 0x811c9dc5;
+  for(let i=0;i<text.length;i++){ h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; h ^= h >>> 13; }
+  return h >>> 0;
+}
+function vtsHashWide(text, rounds){
+  let out='', seed=String(text);
+  for(let r=0;r<(rounds||7);r++){
+    seed = VTS_SECRET+'|'+r+'|'+seed+'|'+vtsHash32(seed+'|'+r);
+    out += ('00000000'+vtsHash32(seed).toString(16)).slice(-8);
+  }
+  return out.toUpperCase();
+}
+window.genOfflineKey = function(){
+  const raw = $('offlineDevice').value || '';
+  const shown = String(raw).replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0)-0x0660))
+    .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0)-0x06F0))
+    .trim().toUpperCase();
+  const compact = shown.replace(/[^A-Z0-9]/g,'');
+  const clean = /^VTS/.test(shown) ? compact.slice(3) : compact;
+  if(clean.length !== 12 || ![...clean].every(c => VTS_ALPHA.includes(c))){
+    $('offlineKeyOut').textContent = 'رمز الجهاز غير صالح — يجب أن يكون 12 محرفاً بلا 0/1/O/I/L';
+    $('offlineKeyOut').style.color = '#ffb1b1';
+    return;
+  }
+  const digest = vtsHashWide(VTS_APP_ID + '|' + clean + '|' + VTS_SECRET, 7);
+  let payload = '';
+  for(let i=0;i<16;i++) payload += VTS_ALPHA[parseInt(digest.substr(i*2,2),16) % VTS_ALPHA.length];
+  const key = 'VTS-' + payload.replace(/(.{4})/g,'$1-').replace(/-$/,'');
+  $('offlineKeyOut').style.color = '#38ef7d';
+  $('offlineKeyOut').textContent = key;
+};
+
+boot();
+</script>
+</body>
+</html>
