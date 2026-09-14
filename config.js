@@ -6,7 +6,7 @@ window.MAHANI_CONFIG = {
 
   /* إعدادات Firebase — من Project settings ← Your apps */
   firebase: {
-    apiKey: "AIzaSyChHkinZ_FjiFTQu5X1BoIKTPpAaMdNXU",
+    apiKey: "AIzaSyChHkinZ_FjiFTqUs5X1BoIKTPpAaMdNXU",
     authDomain: "mahani-b6902.firebaseapp.com",
     databaseURL: "https://mahani-b6902-default-rtdb.firebaseio.com",
     projectId: "mahani-b6902",
