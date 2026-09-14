@@ -185,7 +185,7 @@ a{color:#9db4ff}
 <script src="config.js"></script>
 <script type="module">
 import { initializeApp }  from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence }
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getDatabase, ref, onValue, get, update, remove, set }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
@@ -238,7 +238,12 @@ function boot(){
     $('loginCard').classList.add('hide');
     return;
   }
-  setPersistence(auth, browserLocalPersistence).catch(()=>{});
+  try{ setPersistence(auth, inMemoryPersistence).catch(()=>{}); }catch(e){}
+  /* تنظيف بقايا جلسات قديمة قد تُثقل التخزين (آمن — مفاتيح Firebase فقط) */
+  try{
+    const doomed=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf('firebase:')===0) doomed.push(k); }
+    doomed.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  }catch(e){}
   onAuthStateChanged(auth, user => {
     currentUser = user;
     if(user){
@@ -273,6 +278,7 @@ window.doLogin = async function(){
     if(/auth\/user-not-found/i.test(msg)) msg='لا يوجد مستخدم بهذا البريد.';
     if(/auth\/api-key-not-valid/i.test(msg)) msg='مفتاح API غير صالح — راجع config.js';
     if(/auth\/operation-not-allowed/i.test(msg)) msg='فعّل تسجيل الدخول بالبريد في Firebase Console ← Authentication ← Sign-in method';
+    if(/quota|setItem|Storage/i.test(msg)) msg='مساحة متصفحك ممتلئة — جرّب الدخول مرة أخرى (سيعمل دون حفظ الجلسة)، ويُفضّل تفريغ بعض مساحة الهاتف.';
     err.textContent = msg; err.classList.add('show');
   }finally{
     $('loginBtn').disabled = false; $('loginBtn').textContent = 'دخول';

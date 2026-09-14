@@ -9323,7 +9323,7 @@ init();
 (function(){
   if('serviceWorker' in navigator){
     window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('SW error:', err); });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function(err){ console.warn('SW error:', err); });
     });
   }
   var deferredPrompt=null;

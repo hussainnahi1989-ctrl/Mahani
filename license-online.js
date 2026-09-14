@@ -100,10 +100,12 @@ function grantLocal(info) {
     source: 'online',
     note: (info && info.note) || ''
   };
-  writeJSON(LICENSE_KEY, rec);
+  const saved = writeJSON(LICENSE_KEY, rec);
+  if (!saved) SESSION_LICENSE = rec;   /* الذاكرة ممتلئة: التفعيل يبقى سارياً لهذه الجلسة */
   return rec;
 }
 function revokeLocal() {
+  SESSION_LICENSE = null;
   try { localStorage.removeItem(LICENSE_KEY); } catch (e) {}
 }
 
