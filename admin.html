@@ -310,6 +310,17 @@ window.loadOnce = function(){
 
 const STATUS = { pending:'قيد الانتظار', active:'مفعّل', revoked:'مُلغى' };
 const DEVTYPE = { mobile:'📱 موبايل', tablet:'📟 تابلت', desktop:'💻 حاسوب', unknown:'🔲 جهاز' };
+const STAGE = { primary:'ابتدائية', preparatory:'إعدادية', secondary:'ثانوية', vocational:'مهنية', other:'أخرى' };
+const GENDER = { boys:'بنين', girls:'بنات', mixed:'مختلطة' };
+function phoneIntl(raw){
+  let s = String(raw == null ? '' : raw)
+    .replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/[^0-9+]/g, '').replace(/^\+/, '');
+  if (s.startsWith('00')) s = s.slice(2);
+  if (s.startsWith('0')) s = '964' + s.slice(1);
+  return s;
+}
 
 window.setFilter = function(f){
   filter = f;
@@ -374,6 +385,8 @@ function render(){
         '<div class="school-line">' +
           (d.school ? '🏫 <b>' + esc(d.school) + '</b>' : '🏫 <span style="opacity:.6">مدرسة غير مسجلة بعد</span>') +
           (d.principal ? ' — 👤 المدير: <b>' + esc(d.principal) + '</b>' : '') +
+          (d.stage ? '<br><span class="badge devtype">🎓 ' + esc(STAGE[d.stage] || d.stage) + '</span>' : '') +
+          (d.gender ? ' <span class="badge devtype">👥 ' + esc(GENDER[d.gender] || d.gender) + '</span>' : '') +
         '</div>' +
         '<div class="dev-meta">' +
           (d.phone ? '📞 <b dir="ltr">' + esc(d.phone) + '</b> — ' : '') +
@@ -402,7 +415,8 @@ function render(){
         (st !== 'pending'  ? '<button class="btn b-ghost b-sm" onclick="act(\'' + esc(code) + '\',\'pending\',0)">↩ للانتظار</button>' : '') +
         '<button class="btn b-ghost b-sm" onclick="editInfo(\'' + esc(code) + '\')">✏️ البيانات</button>' +
         '<button class="btn b-ghost b-sm" onclick="setNote(\'' + esc(code) + '\')">📝 ملاحظة</button>' +
-        (d.phone ? '<button class="btn b-ghost b-sm" onclick="wa(\'' + esc(String(d.phone).replace(/[^0-9]/g,'')) + '\')">💬 واتساب</button>' : '') +
+        (d.phone ? '<a class="btn b-green b-sm" href="tel:' + esc(phoneIntl(d.phone)) + '" title="اتصال: ' + esc(String(d.phone)) + '">📞 اتصال</a>' +
+                  '<a class="btn b-green b-sm wa-btn" href="https://wa.me/' + esc(phoneIntl(d.phone)) + '" target="_blank" rel="noopener" title="واتساب: ' + esc(String(d.phone)) + '">💬 واتساب</a>' : '') +
         '<button class="btn b-ghost b-sm" onclick="copyText(\'' + esc(d.code || code) + '\')">📋 نسخ الرمز</button>' +
         '<button class="btn b-ghost b-sm" onclick="delDev(\'' + esc(code) + '\')">🗑 حذف</button>' +
       '</div>' +

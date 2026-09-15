@@ -132,14 +132,35 @@ function detectDeviceType(){
   }catch(e){ return 'unknown'; }
 }
 
+/* ---------- بيانات الزبون: الهاتف ونوع المدرسة (يحفظها جهاز الزبون) ---------- */
+const CLIENT_PHONE_KEY = 'vts_client_phone_v1';
+const CLIENT_STAGE_KEY = 'vts_client_stage_v1';
+let uiLock = false;   /* أثناء عرض نموذج الطلب/رسالة النجاح لا نُغيّر البطاقة */
+
+function readLocal(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+function writeLocal(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function escLocal(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function phoneToIntl(raw) {
+  let s = String(raw == null ? '' : raw)
+    .replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/[^0-9+]/g, '').replace(/^\+/, '');
+  if (s.startsWith('00')) s = s.slice(2);
+  if (s.startsWith('0')) s = '964' + s.slice(1);
+  return s;
+}
+function clientDataReady() { return !!(readLocal(CLIENT_PHONE_KEY) && readLocal(CLIENT_STAGE_KEY)); }
+
 /* ---------- بيانات المدرسة المرسلة مع الطلب ---------- */
 function schoolInfo() {
-  const out = { school: '', principal: '', phone: '' };
+  const out = { school: '', principal: '', phone: '', stage: '', gender: '' };
   try {
     const s = (window.STATE && window.STATE.settings) || {};
     out.school = String(s.schoolName || '').slice(0, 120);
     out.principal = String(s.principalName || '').slice(0, 120);
-    out.phone = String(s.schoolPhone || s.phone || '').slice(0, 40);
+    out.phone = readLocal(CLIENT_PHONE_KEY).slice(0, 40);
+    out.stage = readLocal(CLIENT_STAGE_KEY).slice(0, 20);
+    out.gender = String(s.schoolGender || '').slice(0, 10);
   } catch (e) {}
   return out;
 }
@@ -206,6 +227,9 @@ async function checkNow(options) {
         school: info.school,
         principal: info.principal,
         phone: info.phone,
+        stage: info.stage,
+        gender: info.gender,
+        deviceType: detectDeviceType(),
         createdAt: now,
         updatedAt: now,
         lastSeenAt: now,
@@ -255,12 +279,18 @@ async function checkNow(options) {
       return 'revoked';
     }
 
-    /* pending: حدّث آخر ظهور كل نصف ساعة فقط */
-    const patch = { lastSeenAt: now, updatedAt: now };
-    if (info.school) patch.school = info.school;
-    if (info.principal) patch.principal = info.principal;
-    if (info.phone) patch.phone = info.phone;
-    if (!data.lastSeenAt || now - Number(data.lastSeenAt || 0) > 30 * 60 * 1000) {
+    /* pending: حدّث البيانات فور تغيّرها (المدرسة/المدير/الهاتف/النوع/المرحلة)، وآخر ظهور كل ١٠ دقائق */
+    const dtype = detectDeviceType();
+    const patch = {};
+    if (!data.deviceType || data.deviceType !== dtype) patch.deviceType = dtype;
+    if (info.school && info.school !== String(data.school || '')) patch.school = info.school;
+    if (info.principal && info.principal !== String(data.principal || '')) patch.principal = info.principal;
+    if (info.phone && info.phone !== String(data.phone || '')) patch.phone = info.phone;
+    if (info.stage && info.stage !== String(data.stage || '')) patch.stage = info.stage;
+    if (info.gender && info.gender !== String(data.gender || '')) patch.gender = info.gender;
+    if (!data.lastSeenAt || now - Number(data.lastSeenAt || 0) > 10 * 60 * 1000) patch.lastSeenAt = now;
+    if (Object.keys(patch).length) {
+      patch.updatedAt = now;
       try { await mod.update(node, patch); } catch (e) {}
     }
     writeJSON(META_KEY, { lastCheck: now });
@@ -311,6 +341,7 @@ const TEXTS = {
 };
 
 function renderStatus() {
+  if (uiLock) return;
   const box = document.getElementById('licenseOnlineBox');
   const statusEl = document.getElementById('licenseOnlineStatus');
   const btn = document.getElementById('licenseOnlineBtn');
@@ -373,13 +404,97 @@ window.__VTS_ONLINE__ = {
 };
 
 window.vtsOnlineRequest = function () {
+  if (!clientDataReady()) { renderRequestForm(); return; }
+  uiLock = false;
   checkNow({ manual: true });
 };
 
-window.vtsOnlineDialogOpened = function () {
-  renderStatus();
+/* ---------- نموذج إكمال بيانات طلب التفعيل (الهاتف + نوع المدرسة) ---------- */
+function activationRequestMessage() {
+  const info = schoolInfo();
+  const parts = [
+    'مرحباً، أرغب بمتابعة طلب تفعيل تطبيق الجدول الأسبوعي.',
+    'رمز الجهاز: ' + deviceFormatted(),
+    info.school ? 'المدرسة: ' + info.school : '',
+    info.principal ? 'المدير: ' + info.principal : '',
+    info.phone ? 'الهاتف: ' + info.phone : ''
+  ].filter(Boolean);
+  return parts.join('\n');
+}
+
+function renderRequestForm() {
+  const box = document.getElementById('licenseOnlineBox');
+  if (!box) return;
+  uiLock = true;
+  box.dataset.status = 'form';
+  box.innerHTML =
+    '<div class="lo-title">📝 إكمال بيانات طلب التفعيل</div>' +
+    '<p class="lo-sub">اكتب رقم الهاتف للاتصال بك عند تفعيل التطبيق</p>' +
+    '<input id="loPhone" class="lo-input" type="tel" inputmode="tel" maxlength="20" placeholder="مثال: 07712345678" dir="ltr" autocomplete="tel">' +
+    '<label class="lo-label" for="loStage">نوع المدرسة</label>' +
+    '<select id="loStage" class="lo-input">' +
+      '<option value="">— اختر نوع المدرسة —</option>' +
+      '<option value="primary">ابتدائية</option>' +
+      '<option value="preparatory">إعدادية</option>' +
+      '<option value="secondary">ثانوية</option>' +
+      '<option value="vocational">مهنية</option>' +
+      '<option value="other">أخرى</option>' +
+    '</select>' +
+    '<button id="loConfirm" class="license-online-btn" type="button">✓ موافق — إرسال الطلب</button>' +
+    '<p class="lo-note">📌 اسم المدرسة واسم المدير ونوعها (بنين / بنات / مختلطة) تُرسل تلقائياً من بيانات تطبيقك.</p>';
+  const btn = document.getElementById('loConfirm');
+  if (btn) btn.addEventListener('click', submitRequestForm);
+}
+
+function submitRequestForm() {
+  const phoneEl = document.getElementById('loPhone');
+  const stageEl = document.getElementById('loStage');
+  const raw = String(phoneEl && phoneEl.value || '').trim();
+  const localDigits = raw.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+                         .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0))
+                         .replace(/[^0-9]/g, '');
+  const stage = stageEl ? stageEl.value : '';
+  const sub = document.querySelector('#licenseOnlineBox .lo-sub');
+  if (localDigits.length < 10 || localDigits.length > 15) {
+    if (sub) { sub.textContent = '⚠️ رقم الهاتف غير صحيح — اكتبه مثل: 07712345678'; sub.style.color = '#c0392b'; }
+    return;
+  }
+  if (!stage) {
+    if (sub) { sub.textContent = '⚠️ اختر نوع المدرسة من القائمة.'; sub.style.color = '#c0392b'; }
+    return;
+  }
+  writeLocal(CLIENT_PHONE_KEY, raw.slice(0, 40));
+  writeLocal(CLIENT_STAGE_KEY, stage);
+  renderRequestSuccess();
+  uiLock = false;
   checkNow({ manual: true });
   schedule();
+  uiLock = true;   /* رسالة النجاح تبقى ظاهرة حتى إغلاق النافذة */
+}
+
+function renderRequestSuccess() {
+  const box = document.getElementById('licenseOnlineBox');
+  if (!box) return;
+  const support = (typeof VTS_SUPPORT_WHATSAPP !== 'undefined') ? VTS_SUPPORT_WHATSAPP : '9647712080871';
+  let wa = 'https://wa.me/' + support + '?text=' + encodeURIComponent(activationRequestMessage());
+  box.dataset.status = 'form';
+  box.innerHTML =
+    '<div class="lo-title">✅ تم تسجيل طلبك بنجاح</div>' +
+    '<p class="lo-sub">سيرد عليك في أقرب وقت أو سيتم مراسلتك عبر الواتساب.</p>' +
+    '<p class="lo-note">للمعلومات أكثر يرجى مراسلة الدعم مباشرة:</p>' +
+    '<a class="lo-wa-btn" href="' + wa + '" target="_blank" rel="noopener">💬 مراسلة الدعم واتساب الآن</a>' +
+    '<p class="lo-note" dir="ltr">📞 ' + escLocal(readLocal(CLIENT_PHONE_KEY)) + '</p>';
+}
+
+window.vtsOnlineDialogOpened = function () {
+  if (clientDataReady()) {
+    uiLock = false;
+    renderStatus();
+    checkNow({ manual: true });
+    schedule();
+  } else {
+    renderRequestForm();
+  }
 };
 
 /* ---------- الإقلاع ---------- */
@@ -400,11 +515,15 @@ function boot() {
     return;
   }
 
-  checkNow({});          /* يسجّل الطلب تلقائياً ويبدأ الفحص الدوري */
+  if (clientDataReady()) {
+    checkNow({});          /* البيانات مكتملة: يسجّل الطلب تلقائياً ويبدأ الفحص الدوري */
+  } else {
+    setStatus('unknown', '');   /* بانتظار أن يضغط الزبون زر الطلب فيكمل هاتفه ونوع مدرسته */
+  }
 
-  window.addEventListener('online', () => { checkNow({}); });
+  window.addEventListener('online', () => { if (clientDataReady()) checkNow({}); });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !localLicenseValid()) checkNow({});
+    if (!document.hidden && !localLicenseValid() && clientDataReady()) checkNow({});
   });
 }
 
