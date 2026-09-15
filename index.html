@@ -9423,17 +9423,3 @@ init();
 </script>
 </body>
 </html>
-var p=deferredPrompt; deferredPrompt=null;
-      p.prompt();
-      p.userChoice.then(function(res){ if(res && res.outcome==='accepted' && btn) btn.hidden=true; });
-    }else if(isIOS()){
-      alert('لتثبيت التطبيق على الآيفون:\nاضغط زر المشاركة ↗ ثم اختر «إضافة إلى الشاشة الرئيسية».');
-    }else{
-      alert('لتثبيت التطبيق:\nافتح قائمة المتصفح ⋮ ثم اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».');
-    }
-  });
-  if(btn && isIOS() && !standalone()) setTimeout(function(){ btn.hidden=false; }, 3000);
-})();
-</script>
-</body>
-</html>
