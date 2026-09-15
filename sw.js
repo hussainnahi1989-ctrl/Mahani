@@ -1,5 +1,5 @@
 /* ===== Service Worker — يجعل التطبيق يعمل أوفلاين وقابل للتثبيت ===== */
-const VERSION = 'mahani-v7';
+const VERSION = 'mahani-v8';
 const PRECACHE = [
   './',
   './index.html',

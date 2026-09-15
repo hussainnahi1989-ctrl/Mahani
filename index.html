@@ -2385,7 +2385,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
       <div><span class="about-contact-icon" aria-hidden="true">🤝</span><h3 id="aboutContactTitle">الدعم والتواصل</h3></div>
       <div class="about-contact-actions">
         <a class="btn about-apps-button" href="https://t.me/hu_sain123" target="_blank" rel="noopener noreferrer" aria-label="فتح تطبيقاتي على تيليغرام">📱 تطبيقاتي</a>
-        <a class="btn secondary about-support-button" href="https://wa.me/9647712080871" target="_blank" rel="noopener noreferrer" aria-label="مراسلة الدعم عبر واتساب">💬 مراسلة الدعم</a>
+        <a class="btn secondary about-support-button" href="https://wa.me/9647712080871" target="_blank" rel="noopener noreferrer" aria-label="مراسلة الدعم عبر واتساب">💬 مراسلة الدعم على الواتساب</a>
       </div>
     </section>
   </div>
@@ -2427,7 +2427,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
       </div>
       <div class="license-actions">
         <button class="btn license-primary" type="button" onclick="activateProfessionalScheduler()">✓ إدخال رمز تفعيل يدوي</button>
-        <button class="btn license-whatsapp" type="button" onclick="requestActivationViaWhatsApp()">💬 مراسلة الدعم</button>
+        <button class="btn license-whatsapp" type="button" onclick="requestActivationViaWhatsApp()">💬 مراسلة الدعم على الواتساب</button>
       </div>
       <div class="license-footnote">بعد التفعيل تتاح ميزات التوليد والنسخ الاحتياطي والتنبيهات، ويُخفى الجدول التجريبي. التفعيل الأونلاين يُجرى مرة واحدة ثم يعمل التطبيق بلا إنترنت.</div>
     </div>
@@ -2883,6 +2883,20 @@ function renderFirstRunWelcome(){
 }
 function showFirstRunOnboarding(){
   if(hasCompletedSchoolProfile()) return false;
+  /* بوابة أخيرة: إن كانت بيانات المدرسة محفوظة في العلم الصغير نستعيدها ونُخفي النافذة
+     — يمنع عودة النافذة على الأجهزة التي يفشل فيها الحفظ الكامل أو القديمة التي سبق أكملت. */
+  try{
+    const obFlag = readOnboardingFlag();
+    if(obFlag && obFlag.schoolName && obFlag.principalName && obFlag.schoolGender){
+      if(!String(STATE.settings.schoolName||'').trim()) STATE.settings.schoolName = obFlag.schoolName;
+      if(!String(STATE.settings.principalName||'').trim()) STATE.settings.principalName = obFlag.principalName;
+      if(!STATE.settings.schoolGender) STATE.settings.schoolGender = obFlag.schoolGender;
+      STATE.settings.onboardingComplete = true;
+      saveState();
+      writeOnboardingFlag(STATE.settings);
+      return false;
+    }
+  }catch(e){}
   const overlay=document.getElementById('firstRunOverlay');
   if(!overlay) return false;
   renderFirstRunProfileForm();

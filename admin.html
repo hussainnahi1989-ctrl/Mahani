@@ -134,9 +134,10 @@ a{color:#9db4ff}
       <h3>📱 الأجهزة وطلبات التفعيل</h3>
       <div class="chipbar">
         <button class="chip on" data-f="all" onclick="setFilter('all')">الكل</button>
-        <button class="chip" data-f="pending" onclick="setFilter('pending')">قيد الانتظار</button>
-        <button class="chip" data-f="active" onclick="setFilter('active')">مفعّلة</button>
-        <button class="chip" data-f="revoked" onclick="setFilter('revoked')">ملغاة</button>
+        <button class="chip" data-f="today" onclick="setFilter('today')">📅 طلبات اليوم</button>
+        <button class="chip" data-f="active" onclick="setFilter('active')">✓ مفعّلة</button>
+        <button class="chip" data-f="inactive" onclick="setFilter('inactive')">✗ غير مفعّلة</button>
+        <button class="chip" data-f="profits" onclick="setFilter('profits')">💰 الأرباح</button>
       </div>
       <input type="search" id="search" placeholder="🔍 ابحث برمز الجهاز أو اسم المدرسة أو الهاتف أو الملاحظة…" oninput="render()" style="margin-bottom:12px">
       <div class="row" style="margin-bottom:12px">
@@ -202,6 +203,150 @@ let APP_ID = localStorage.getItem('mahani_admin_appid') || APP_ID_DEFAULT;
 let auth = null, db = null, currentUser = null;
 let devices = {};               // deviceCode -> data
 let lastRows = [];              // آخر قائمة ظاهرة (للطباعة)
+/* ---------- أسعار الخطط (قابلة للتعديل من تبويب الأرباح ⚙️) ---------- */
+const PRICES_KEY = 'mahani_prices_v1';
+const DEFAULT_PRICES = { '30': 5000, '90': 10000, '365': 25000, '0': 50000 };  // دينار عراقي
+function loadPrices(){
+  try{
+    const raw = localStorage.getItem(PRICES_KEY);
+    if(!raw) return Object.assign({}, DEFAULT_PRICES);
+    const p = JSON.parse(raw);
+    return {
+      '30': Number(p['30'] || 0) || DEFAULT_PRICES['30'],
+      '90': Number(p['90'] || 0) || DEFAULT_PRICES['90'],
+      '365': Number(p['365'] || 0) || DEFAULT_PRICES['365'],
+      '0': Number(p['0'] || 0) || DEFAULT_PRICES['0']
+    };
+  }catch(e){ return Object.assign({}, DEFAULT_PRICES); }
+}
+function savePrices(p){ try{ localStorage.setItem(PRICES_KEY, JSON.stringify(p)); }catch(e){} }
+function planLabel(days){
+  const d = Number(days || 0);
+  return d === 0 ? 'دائم' : (d <= 31 ? 'شهري' : (d <= 91 ? '٣ أشهر' : (d <= 200 ? '٦ أشهر' : 'سنوي')));
+}
+function salePriceFor(days){ const p = loadPrices(); const d = Number(days || 0); return Number(p[String(d)] != null ? p[String(d)] : (d === 0 ? p['0'] : (d <= 31 ? p['30'] : (d <= 91 ? p['90'] : p['365']))) || 0); }
+function fmtIQD(n){ return Number(n || 0).toLocaleString('en-US') + ' د.ع'; }
+/* تسجيل عملية بيع داخل سجل الجهاز (sales/{timestamp}) — يكتب بحساب الإدارة فقاعدة البيانات تسمح بذلك */
+function salePatch(code, days){
+  const d = devices[code] || {};
+  const at = Date.now();
+  const sale = { at: at, days: Number(days || 0), plan: planLabel(days), price: salePriceFor(days),
+                 school: String(d.school || '').slice(0,120), principal: String(d.principal || '').slice(0,120),
+                 phone: String(d.phone || '').slice(0,40) };
+  const patch = {};
+  patch['sales/' + at] = sale;
+  return patch;
+}
+window.editSalePrice = async function(code, ts){
+  const d = devices[code] || {};
+  const sale = (d.sales || {})[ts];
+  if(!sale){ alert('لم يتم العثور على العملية.'); return; }
+  const v = prompt('تعديل مبلغ هذه العملية (دينار عراقي):', sale.price || 0);
+  if(v === null) return;
+  const price = Math.max(0, Number(String(v).replace(/[^0-9]/g, '')) || 0);
+  try{
+    await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), { ['sales/' + ts + '/price']: price, updatedAt: Date.now() });
+  }catch(e){ alert('تعذّر الحفظ: ' + (e.message || e)); }
+};
+window.editPrices = function(){
+  const p = loadPrices();
+  const v = prompt('أسعار الخطط بالدينار العراقي — اكتبها بالترتيب مفصولة بفواصل:\nشهري, ٣ أشهر, سنوي, دائم', (p['30'] + ',' + p['90'] + ',' + p['365'] + ',' + p['0']));
+  if(v === null) return;
+  const parts = v.split(',').map(s => Number(String(s).replace(/[^0-9]/g, '')) || 0);
+  const np = { '30': parts[0] || p['30'], '90': parts[1] || p['90'], '365': parts[2] || p['365'], '0': parts[3] || p['0'] };
+  savePrices(np);
+  render();
+};
+window.printProfits = function(){
+  try{
+    const sales = collectSales();
+    if(!sales.length){ alert('لا توجد عمليات بيع بعد.'); return; }
+    const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const fmt = ts => new Date(Number(ts)).toLocaleString('ar-IQ');
+    let total = 0, today = 0;
+    const t0 = new Date(); t0.setHours(0,0,0,0);
+    const trs = sales.map((s, i) => {
+      total += Number(s.price || 0);
+      if(Number(s.at || 0) >= t0.getTime()) today += Number(s.price || 0);
+      return '<tr><td>' + (i + 1) + '</td><td>' + fmt(s.at) + '</td><td dir="ltr">' + esc(s.code) + '</td><td>' + esc(s.school || '—') + '</td><td>' + esc(s.principal || '—') + '</td><td dir="ltr">' + esc(s.phone || '—') + '</td><td>' + esc(s.plan) + '</td><td>' + fmtIQD(s.price) + '</td></tr>';
+    }).join('');
+    const w = window.open('', '_blank');
+    if(!w){ alert('يرجى السماح بالنوافذ المنبثقة لعرض الطباعة.'); return; }
+    w.document.write('<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>سجل الأرباح</title><style>'
+      + 'body{font-family:Arial,Tahoma,sans-serif;padding:14px;color:#111}'
+      + 'h1{font-size:18px;margin:0 0 4px}.sub{color:#555;font-size:12px;margin-bottom:12px}'
+      + 'table{width:100%;border-collapse:collapse;font-size:11.5px}'
+      + 'th,td{border:1px solid #8a8a8a;padding:5px 7px;text-align:right}th{background:#e8f7ee}'
+      + 'tr:nth-child(even) td{background:#f4fff8}'
+      + '.tot{margin-top:12px;font-size:14px;font-weight:bold}'
+      + '@page{size:A4 landscape;margin:12mm}</style></head><body>'
+      + '<h1>💰 سجل الحسابات والأرباح — الجدول الأسبوعي للمدارس المهنية</h1>'
+      + '<div class="sub">تاريخ الطباعة: ' + new Date().toLocaleString('ar-IQ') + ' — عدد العمليات: ' + sales.length + '</div>'
+      + '<table><thead><tr><th>#</th><th>التاريخ</th><th>رمز الجهاز</th><th>المدرسة</th><th>المدير</th><th>الهاتف</th><th>مدة التفعيل</th><th>المبلغ</th></tr></thead><tbody>' + trs + '</tbody></table>'
+      + '<div class="tot">أرباح اليوم: ' + fmtIQD(today) + ' — الإجمالي الكلي: ' + fmtIQD(total) + '</div>'
+      + '<p style="margin-top:12px"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;cursor:pointer">🖨 طباعة / حفظ PDF</button></p>'
+      + '</body></html>');
+    w.document.close();
+    setTimeout(() => { try{ w.focus(); w.print(); }catch(e){} }, 450);
+  }catch(e){ alert('تعذّر إنشاء الطباعة: ' + (e && e.message || e)); }
+};
+function collectSales(){
+  const out = [];
+  Object.entries(devices).forEach(([code, d]) => {
+    const sales = d.sales || {};
+    Object.keys(sales).forEach(ts => {
+      const s = sales[ts] || {};
+      out.push({ code: code, at: Number(s.at || ts), days: Number(s.days || 0), plan: s.plan || planLabel(s.days), price: Number(s.price || 0), school: s.school || d.school || '', principal: s.principal || d.principal || '', phone: s.phone || d.phone || '' });
+    });
+  });
+  out.sort((a, b) => b.at - a.at);
+  return out;
+}
+/* ---------- تبويب الأرباح: جدول الحسابات والمجاميع ---------- */
+function renderProfits(){
+  const sales = collectSales();
+  const t0 = new Date(); t0.setHours(0,0,0,0);
+  const m0 = new Date(); m0.setDate(1); m0.setHours(0,0,0,0);
+  let total = 0, today = 0, month = 0;
+  sales.forEach(s => {
+    total += Number(s.price || 0);
+    if(Number(s.at || 0) >= t0.getTime()) today += Number(s.price || 0);
+    if(Number(s.at || 0) >= m0.getTime()) month += Number(s.price || 0);
+  });
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmt = ts => new Date(Number(ts)).toLocaleDateString('ar-IQ');
+  const trs = sales.map((s, i) =>
+    '<tr>' +
+    '<td>' + (i + 1) + '</td>' +
+    '<td>' + fmt(s.at) + '</td>' +
+    '<td dir="ltr">' + esc(s.code) + '</td>' +
+    '<td>' + esc(s.school || '—') + '</td>' +
+    '<td>' + esc(s.principal || '—') + '</td>' +
+    '<td dir="ltr">' + esc(s.phone || '—') + '</td>' +
+    '<td>' + esc(s.plan) + '</td>' +
+    '<td><button class="btn b-ghost b-sm" style="padding:2px 8px" onclick="editSalePrice(\\'' + esc(s.code) + '\\',' + Number(s.at) + ')" title="اضغط لتعديل المبلغ">💰 ' + fmtIQD(s.price) + '</button></td>' +
+    '</tr>'
+  ).join('') || '<tr><td colspan="8" style="text-align:center;padding:18px;opacity:.7">لا توجد عمليات بعد — سجّل أول تفعيل من أزرار الخطة وسيظهر هنا تلقائياً.</td></tr>';
+  $('list').innerHTML =
+    '<div class="card" style="margin-bottom:12px">' +
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">' +
+        '<div style="display:flex;flex-wrap:wrap;gap:14px;font-weight:800">' +
+          '<span>📊 عدد العمليات: <b>' + sales.length + '</b></span>' +
+          '<span style="color:#37d67a">أرباح اليوم: <b>' + fmtIQD(today) + '</b></span>' +
+          '<span style="color:#7db8ff">هذا الشهر: <b>' + fmtIQD(month) + '</b></span>' +
+          '<span style="color:#ffd479">الإجمالي الكلي: <b>' + fmtIQD(total) + '</b></span>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn b-ghost b-sm" onclick="editPrices()">⚙️ تعديل الأسعار</button>' +
+          '<button class="btn b-green b-sm" onclick="printProfits()">🖨 طباعة السجل</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">' +
+      '<thead><tr style="text-align:right;opacity:.85">' +
+      '<th style="padding:8px 6px">#</th><th style="padding:8px 6px">التاريخ</th><th style="padding:8px 6px">رمز الجهاز</th><th style="padding:8px 6px">المدرسة</th><th style="padding:8px 6px">المدير</th><th style="padding:8px 6px">الهاتف</th><th style="padding:8px 6px">مدة التفعيل</th><th style="padding:8px 6px">المبلغ (اضغط للتعديل)</th>' +
+      '</tr></thead><tbody>' + trs + '</tbody></table></div>';
+}
 let filter = 'all';
 const selected = new Set();
 
@@ -413,7 +558,15 @@ window.printRequests = function(){
 function visibleList(){
   const q = ($('search').value || '').trim().toLowerCase();
   let rows = Object.entries(devices);
-  if(filter !== 'all') rows = rows.filter(([, d]) => (d.status || 'pending') === filter);
+  if(filter === 'today'){
+    const t0 = new Date(); t0.setHours(0,0,0,0);
+    rows = rows.filter(([, d]) => [d.createdAt, d.updatedAt, d.activatedAt]
+      .some(ts => Number(ts || 0) >= t0.getTime()));
+  }
+  else if(filter === 'inactive'){
+    rows = rows.filter(([, d]) => { const st = d.status || 'pending'; return st !== 'active'; });
+  }
+  else if(filter !== 'all' && filter !== 'profits') rows = rows.filter(([, d]) => (d.status || 'pending') === filter);
   if(q) rows = rows.filter(([code, d]) =>
     [code, d.code, d.school, d.principal, d.phone, d.note, d.origin].join(' ').toLowerCase().includes(q));
   const rank = { pending:0, active:1, revoked:2 };
@@ -428,6 +581,7 @@ function visibleList(){
 function render(){
   const rows = visibleList();
   lastRows = rows;
+  if(filter === 'profits'){ renderProfits(); return; }
   const all = Object.values(devices);
   $('stAll').textContent = all.length;
   $('stPending').textContent = all.filter(d => (d.status||'pending')==='pending').length;
@@ -518,6 +672,7 @@ window.act = async function(code, status, days){
     patch.plan = dnum === 0 ? 'دائم' : (dnum <= 31 ? 'شهري' : (dnum <= 91 ? 'ثلاثة أشهر' : 'سنوي'));
   }
   if(status === 'revoked'){ patch.revokedAt = Date.now(); patch.expiresAt = 0; patch.plan = ''; }
+  if(status === 'active') Object.assign(patch, salePatch(code, days));   /* 💰 تسجيل العملية في سجل الأرباح */
   try{ await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), patch); }
   catch(e){ alert('تعذّر التحديث: ' + (e.message || e)); }
 };
@@ -530,6 +685,7 @@ window.renew = async function(code, days){
   patch.expiresAt = dnum > 0 ? base + dnum * 86400000 : 0;
   patch.plan = dnum === 0 ? 'دائم' : (dnum <= 31 ? 'شهري' : (dnum <= 91 ? 'ثلاثة أشهر' : 'سنوي'));
   if(!ex) patch.activatedAt = Date.now();
+  Object.assign(patch, salePatch(code, dnum));   /* 💰 التجديد = عملية بيع جديدة في السجل */
   try{ await update(ref(db, 'apps/' + APP_ID + '/devices/' + code), patch); }
   catch(e){ alert('تعذّر التجديد: ' + (e.message || e)); }
 };
