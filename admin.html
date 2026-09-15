@@ -105,7 +105,8 @@ a{color:#9db4ff}
     </div>
     <div class="row" style="margin-top:14px">
       <button class="btn b-primary" id="loginBtn" onclick="doLogin()">دخول</button>
-      <span class="small">سجّل الدخول بحسابك في Firebase Authentication (الذي أنشأته لنفسك).</span>
+      <button class="btn b-ghost b-sm" onclick="clearSavedLogin()">🗑 مسح الحفظ</button>
+      <span class="small">بعد أول دخول ناجح تُحفظ البيانات على جهازك — لاحقاً يكفي الضغط على «دخول».</span>
     </div>
     <div class="err" id="loginErr"></div>
   </div>
@@ -146,6 +147,7 @@ a{color:#9db4ff}
         <button class="btn b-red b-sm" onclick="bulk('revoked')">🚫 إلغاء المحدد</button>
         <button class="btn b-ghost b-sm" onclick="bulkDelete()">🗑 حذف المحدد</button>
         <button class="btn b-ghost b-sm" onclick="loadOnce()">⟳ تحديث</button>
+        <button class="btn b-ghost b-sm" onclick="printRequests()">🖨 طباعة القائمة</button>
       </div>
       <div id="list"><div class="empty">جارٍ الاتصال…</div></div>
     </div>
@@ -199,6 +201,7 @@ let APP_ID = localStorage.getItem('mahani_admin_appid') || APP_ID_DEFAULT;
 
 let auth = null, db = null, currentUser = null;
 let devices = {};               // deviceCode -> data
+let lastRows = [];              // آخر قائمة ظاهرة (للطباعة)
 let filter = 'all';
 const selected = new Set();
 
@@ -274,7 +277,7 @@ window.doLogin = async function(){
   $('loginBtn').disabled = true; $('loginBtn').textContent = '… جارٍ الدخول';
   try{
     await signInWithEmailAndPassword(auth, email, pass);
-    $('password').value = '';
+    saveCreds(email, pass);   /* حفظ البيانات للدخول السريع: يكفي الضغط على «دخول» لاحقاً */
   }catch(e){
     let msg = e && e.message ? e.message : String(e);
     if(/auth\/invalid-credential|wrong-password/i.test(msg)) msg='البريد أو كلمة المرور غير صحيحة.';
@@ -321,6 +324,29 @@ function phoneIntl(raw){
   if (s.startsWith('0')) s = '964' + s.slice(1);
   return s;
 }
+/* ---------- حفظ بيانات دخول الإدارة على هذا الجهاز ---------- */
+const ADMIN_CREDS_KEY = 'mahani_admin_creds_v1';
+function loadSavedCreds(){
+  try{
+    const raw = localStorage.getItem(ADMIN_CREDS_KEY); if(!raw) return null;
+    const d = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    return (d && d.e && d.p) ? d : null;
+  }catch(e){ return null; }
+}
+function saveCreds(email, pass){
+  try{ localStorage.setItem(ADMIN_CREDS_KEY, btoa(unescape(encodeURIComponent(JSON.stringify({ e: email, p: pass }))))); }catch(e){}
+}
+function clearSavedCreds(){ try{ localStorage.removeItem(ADMIN_CREDS_KEY); }catch(e){} }
+window.clearSavedLogin = function(){
+  clearSavedCreds();
+  $('email').value = ''; $('password').value = '';
+  const err = $('loginErr'); err.textContent = 'تم مسح البيانات المحفوظة من هذا الجهاز.'; err.classList.add('show');
+};
+/* تعبئة الحقول المحفوظة عند فتح اللوحة — يكفي الضغط على «دخول» */
+try{
+  const sc = loadSavedCreds();
+  if(sc){ $('email').value = sc.e; $('password').value = sc.p; }
+}catch(e){}
 
 window.setFilter = function(f){
   filter = f;
@@ -330,6 +356,59 @@ window.setFilter = function(f){
 window.toggleSelectAll = function(cb){
   visibleList().forEach(([code]) => { cb.checked ? selected.add(code) : selected.delete(code); });
   render();
+};
+/* ---------- طباعة قائمة الطلبات ---------- */
+window.printRequests = function(){
+  try{
+    const rows = lastRows || [];
+    if(!rows.length){ alert('لا توجد بيانات للطباعة.'); return; }
+    const st = { pending:'قيد الانتظار', active:'مفعّل', revoked:'مُلغى' };
+    const stage = { primary:'ابتدائية', preparatory:'إعدادية', secondary:'ثانوية', vocational:'مهنية', other:'أخرى' };
+    const gender = { boys:'بنين', girls:'بنات', mixed:'مختلطة' };
+    const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const fmt = ts => { const n = Number(ts); return n ? new Date(n).toLocaleDateString('ar-IQ') : '—'; };
+    const expTxt = d => {
+      if((d.status || 'pending') !== 'active') return '—';
+      const ex = Number(d.expiresAt || 0);
+      if(!ex) return 'دائم';
+      return (Date.now() > ex ? 'منتهي ' : 'حتى ') + fmt(ex);
+    };
+    const counts = { pending:0, active:0, revoked:0 };
+    rows.forEach(([, d]) => { const k = d.status || 'pending'; counts[k] = (counts[k] || 0) + 1; });
+    const trs = rows.map(([code, d], i) =>
+      '<tr><td>' + (i + 1) + '</td>' +
+      '<td dir="ltr">' + esc(d.code || code) + '</td>' +
+      '<td>' + esc(d.school || '—') + '</td>' +
+      '<td>' + esc(d.principal || '—') + '</td>' +
+      '<td dir="ltr">' + esc(d.phone || '—') + '</td>' +
+      '<td>' + esc(d.stage ? (stage[d.stage] || d.stage) : '—') + '</td>' +
+      '<td>' + esc(d.gender ? (gender[d.gender] || d.gender) : '—') + '</td>' +
+      '<td>' + esc(st[d.status || 'pending'] || d.status) + '</td>' +
+      '<td>' + esc(expTxt(d)) + '</td>' +
+      '<td>' + fmt(d.createdAt) + '</td></tr>'
+    ).join('');
+    const w = window.open('', '_blank');
+    if(!w){ alert('يرجى السماح بالنوافذ المنبثقة لعرض الطباعة.'); return; }
+    w.document.write('<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>قائمة طلبات التفعيل</title><style>'
+      + 'body{font-family:Arial,Tahoma,sans-serif;padding:14px;color:#111}'
+      + 'h1{font-size:18px;margin:0 0 4px} .sub{color:#555;font-size:12px;margin-bottom:12px}'
+      + 'table{width:100%;border-collapse:collapse;font-size:11.5px}'
+      + 'th,td{border:1px solid #8a8a8a;padding:5px 7px;text-align:right;vertical-align:top}'
+      + 'th{background:#e8eefb} tr:nth-child(even) td{background:#f6f8ff}'
+      + '@page{size:A4 landscape;margin:12mm}'
+      + '</style></head><body>'
+      + '<h1>📋 قائمة طلبات تفعيل — الجدول الأسبوعي للمدارس المهنية</h1>'
+      + '<div class="sub">تاريخ الطباعة: ' + new Date().toLocaleString('ar-IQ')
+      + ' — الإجمالي: ' + rows.length
+      + ' (قيد الانتظار: ' + (counts.pending || 0)
+      + ' / مفعّل: ' + (counts.active || 0)
+      + ' / مُلغى: ' + (counts.revoked || 0) + ')</div>'
+      + '<table><thead><tr><th>#</th><th>رمز الجهاز</th><th>المدرسة</th><th>المدير</th><th>الهاتف</th><th>المرحلة</th><th>النوع</th><th>الحالة</th><th>الصلاحية</th><th>أول طلب</th></tr></thead><tbody>' + trs + '</tbody></table>'
+      + '<p style="margin-top:14px"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;cursor:pointer">🖨 طباعة / حفظ PDF</button></p>'
+      + '</body></html>');
+    w.document.close();
+    setTimeout(() => { try{ w.focus(); w.print(); }catch(e){} }, 450);
+  }catch(e){ alert('تعذّر إنشاء الطباعة: ' + (e && e.message || e)); }
 };
 function visibleList(){
   const q = ($('search').value || '').trim().toLowerCase();
@@ -348,6 +427,7 @@ function visibleList(){
 
 function render(){
   const rows = visibleList();
+  lastRows = rows;
   const all = Object.values(devices);
   $('stAll').textContent = all.length;
   $('stPending').textContent = all.filter(d => (d.status||'pending')==='pending').length;

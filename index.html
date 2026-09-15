@@ -2556,6 +2556,7 @@ const CURRICULA = {
    إدارة الحالة والتخزين
    ========================================================= */
 const STORE_KEY = "vtsched_v1";
+const OB_FLAG_KEY = "vts_onboarding_done_v1";   /* علم صغير مستقل: يضمن عدم عودة نافذة بيانات المدرسة حتى لو امتلأ التخزين */
 /* هوية محمولة داخل الملف: الشعار الافتراضي والطابع/أيقونة التطبيق بلا اعتماد على ملفات خارجية. */
 const DEFAULT_SCHOOL_LOGO_DATA_URI = window.__SCHEDULER_BRAND.defaultSchoolLogo;
 const APP_ICON_DATA_URI = window.__SCHEDULER_BRAND.appIcon;
@@ -2849,6 +2850,7 @@ function completeFirstRunProfile(){
   STATE.settings.schoolGender=gender;
   STATE.settings.onboardingComplete=true;
   saveState();
+  writeOnboardingFlag(STATE.settings);   /* ضمانة: لا تعود النافذة حتى لو فشل الحفظ الكامل */
   loadSettingsUI();
   renderFirstRunWelcome();
   return true;
@@ -2981,6 +2983,16 @@ function loadState(){
     const incomingSettings = parsed.settings || {};
     // دمج عميق للإعدادات حتى لا تضيع الحقول الجديدة على البيانات المحفوظة سابقاً
     const settings = normalizeSchoolProfileSettings(ensureDefaultSchoolLogo(Object.assign({}, base.settings, incomingSettings)), !Object.prototype.hasOwnProperty.call(incomingSettings,'onboardingComplete'));
+    /* لو تعذّر سابقاً حفظ الحالة الكاملة (امتلاء التخزين مثلاً) نستعيد اكتمال بيانات المدرسة من العلم الصغير */
+    if(!(settings.onboardingComplete === true && String(settings.schoolName || '').trim() && String(settings.principalName || '').trim() && settings.schoolGender)){
+      const obFlag = readOnboardingFlag();
+      if(obFlag){
+        if(!String(settings.schoolName || '').trim()) settings.schoolName = obFlag.schoolName;
+        if(!String(settings.principalName || '').trim()) settings.principalName = obFlag.principalName;
+        if(!settings.schoolGender) settings.schoolGender = obFlag.schoolGender;
+        settings.onboardingComplete = true;
+      }
+    }
     const state = Object.assign(base, parsed, { settings });
     normalizeSchoolStructureState(state); // يضيف الحقول الجديدة ويستنتج الأقسام اليدوية من النسخ الأقدم عند الحاجة
     normalizeSavedScheduleLibrary(state); // ترحيل هادئ للنسخ الأقدم من التطبيق
@@ -3009,6 +3021,28 @@ function saveState(){
     if(STORAGE_OK) warnNoStorage();   // بيئة تحجب التخزين (عارض مضمّن/وضع خاص) — نكمل بلا حفظ
     return false;
   }
+}
+/* علم صغير مستقل لا يتأثر امتلاء التخزين عملياً: يُكتب عند إكمال بيانات المدرسة
+   ويُقرأ عند الإقلاع لضمان عدم ظهور نافذة «بيانات المدرسة» أكثر من مرة. */
+function writeOnboardingFlag(settings){
+  try{
+    localStorage.setItem(OB_FLAG_KEY, JSON.stringify({
+      schoolName: String(settings.schoolName || '').slice(0, 120),
+      principalName: String(settings.principalName || '').slice(0, 120),
+      schoolGender: String(settings.schoolGender || '').slice(0, 10),
+      onboardingComplete: true,
+      t: Date.now()
+    }));
+  }catch(e){}
+}
+function readOnboardingFlag(){
+  try{
+    const raw = localStorage.getItem(OB_FLAG_KEY);
+    if(!raw) return null;
+    const d = JSON.parse(raw);
+    if(d && d.onboardingComplete === true && String(d.schoolName || '').trim() && String(d.principalName || '').trim() && schoolGenderLabel(d.schoolGender)) return d;
+    return null;
+  }catch(e){ return null; }
 }
 
 /* =========================================================
