@@ -1546,6 +1546,30 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
   }
 
 </style>
+<style id="deviceCompat">
+  /* ===== طبقة توافق الأجهزة (إضافية — لا تلمس الطباعة ولا الوظائف) ===== */
+  button,.btn,.chip,.tglbtn,nav.tabs button{touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0);}
+  @media (pointer:coarse) and (max-width:820px){
+    /* منع التكبير التلقائي عند لمس الحقول في iOS (الحد الأدنى 16px) — مع استثناء خلايا الجداول */
+    input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px;}
+    table input,table select,table textarea{font-size:14px;}
+    .btn{min-height:42px;}
+    nav.tabs button{min-height:42px;}
+  }
+  @media (max-width:400px){
+    main{padding:10px 8px 20px;}
+    .card{padding:13px;border-radius:11px;}
+    nav.tabs{padding:6px 8px;gap:5px;}
+    nav.tabs button{padding:8px 11px;font-size:12.5px;}
+    .view-toolbar{gap:6px;}
+  }
+  @media (min-width:2200px){body{zoom:1.25;}}
+  @media (min-width:2560px){body{zoom:1.3;}}
+  @media (orientation:landscape) and (max-height:420px){
+    nav.tabs{position:static;}
+    main{padding:10px 12px 18px;}
+  }
+</style>
 </head>
 <body>
 <div id="appSplash" class="app-splash no-print" role="status" aria-live="polite" aria-label="جارٍ فتح تطبيق الجدول الأسبوعي للمدارس المهنية">
@@ -1700,6 +1724,24 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
             <button class="seg-btn" type="button" data-theme="light" onclick="setTheme('light')">☀️ نهاري</button>
             <button class="seg-btn" type="button" data-theme="dark" onclick="setTheme('dark')">🌙 ليلي</button>
           </div>
+          <div class="row" style="margin-top:16px;">
+            <div>
+              <label>حجم خط جداول التطبيق</label>
+              <select id="fontSizeSelSettings" onchange="setViewFontSize(this.value)">
+                <option value="11">صغير 11</option>
+                <option value="12.5" selected>عادي 12.5</option>
+                <option value="14">متوسط 14</option>
+                <option value="16">كبير 16</option>
+                <option value="18">أكبر 18</option>
+                <option value="20">كبير جداً 20</option>
+                <option value="24">ضخم 24</option>
+                <option value="28">ضخم 28</option>
+                <option value="32">أقصى 32</option>
+                <option value="36">أقصى 36</option>
+                <option value="40">أقصى 40</option>
+              </select>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1800,6 +1842,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
       <button data-clssub="sections">👥 الشعب</button>
     </nav>
   </div>
+
 
   <!-- ---- التبويب الفرعي ١: الفرع (فروع المدرسة) ---- -->
   <div class="sub-panel" id="classes-sub-branch" style="display:block;">
@@ -2030,6 +2073,39 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
       <button data-sub="overview">🧮 العرض الشامل</button>
     </nav>
   </div>
+<div class="view-toolbar no-print" id="viewToolbar">
+    <button class="tglbtn" id="colorToggle" onclick="toggleSubjectColors()">🎨 تلوين المواد</button>
+    <button class="tglbtn" id="hideTeachersToggle" type="button" onclick="toggleHideTeachers()">👤 إظهار أسماء المدرّسين</button>
+    <label class="vt-label">حجم الخط
+      <select id="fontSizeSel" onchange="setViewFontSize(this.value)">
+        <option value="11">صغير</option>
+        <option value="12.5" selected>عادي</option>
+        <option value="14">متوسط</option>
+        <option value="16">كبير</option>
+        <option value="18">أكبر 18</option>
+        <option value="20">كبير جداً 20</option>
+        <option value="24">ضخم 24</option>
+        <option value="28">ضخم 28</option>
+        <option value="32">أقصى 32</option>
+        <option value="36">أقصى 36</option>
+        <option value="40">أقصى 40</option>
+      </select>
+    </label>
+    <label class="vt-label">سماكة الخط
+      <select id="borderWidthSel" onchange="setViewBorderWidth(this.value)">
+        <option value="1" selected>رفيع</option>
+        <option value="2">متوسط</option>
+        <option value="3">سميك</option>
+        <option value="4">سميك جداً</option>
+      </select>
+    </label>
+    <label class="vt-label">موقع المدرّس
+      <select id="teacherPosSel" onchange="setTeacherPosition(this.value)">
+        <option value="below" selected>تحت المادة</option>
+        <option value="beside">بجانب المادة</option>
+      </select>
+    </label>
+  </div>
 <div class="sub-panel" id="tab-schedule" style="display:block;">
   <div class="card">
     <div id="schedClassTabs" class="assign-tabs"></div>
@@ -2087,34 +2163,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
 
   </div>
 
-  <div class="view-toolbar no-print" id="viewToolbar">
-    <button class="tglbtn" id="colorToggle" onclick="toggleSubjectColors()">🎨 تلوين المواد</button>
-    <button class="tglbtn" id="hideTeachersToggle" type="button" onclick="toggleHideTeachers()">👤 إظهار أسماء المدرّسين</button>
-    <label class="vt-label">حجم الخط
-      <select id="fontSizeSel" onchange="setViewFontSize(this.value)">
-        <option value="11">صغير</option>
-        <option value="12.5" selected>عادي</option>
-        <option value="14">متوسط</option>
-        <option value="16">كبير</option>
-      </select>
-    </label>
-    <label class="vt-label">سماكة الخط
-      <select id="borderWidthSel" onchange="setViewBorderWidth(this.value)">
-        <option value="1" selected>رفيع</option>
-        <option value="2">متوسط</option>
-        <option value="3">سميك</option>
-        <option value="4">سميك جداً</option>
-      </select>
-    </label>
-    <label class="vt-label">موقع المدرّس
-      <select id="teacherPosSel" onchange="setTeacherPosition(this.value)">
-        <option value="below" selected>تحت المادة</option>
-        <option value="beside">بجانب المادة</option>
-      </select>
-    </label>
-  </div>
-
-  <div class="export-actions no-print" aria-label="طباعة وتصدير الجدول المجمّع">
+    <div class="export-actions no-print" aria-label="طباعة وتصدير الجدول المجمّع">
     <span class="export-label">طباعة وتصدير الجدول المجمّع:</span>
     <button class="btn small" type="button" onclick="printMasterGrid()">🖨️ طباعة</button>
     <button class="btn secondary small" onclick="exportTable('master','png')">🖼️ صورة PNG</button>
@@ -2213,6 +2262,13 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
           <option value="12.5" selected>عادي</option>
           <option value="14">متوسط</option>
           <option value="16">كبير</option>
+          <option value="18">أكبر 18</option>
+          <option value="20">كبير جداً 20</option>
+          <option value="24">ضخم 24</option>
+          <option value="28">ضخم 28</option>
+          <option value="32">أقصى 32</option>
+          <option value="36">أقصى 36</option>
+          <option value="40">أقصى 40</option>
         </select>
       </label>
       <label class="vt-label">سماكة الخط
@@ -4658,6 +4714,7 @@ function applyViewPrefsUI(){
   applyRootViewPrefs(p);
   syncViewPrefsControls('app',p);
   syncViewPrefsControls('demo',demoViewPrefs());
+  const settingsFont=document.getElementById('fontSizeSelSettings'); if(settingsFont) settingsFont.value=String(p.fontSize);
   syncHideTeachersButtons();
 }
 function applyDemoViewPrefsUI(){
@@ -4689,12 +4746,13 @@ function syncHideTeachersButtons(){
   const hidden = STATE.settings.hideTeacherNames === true;
   ['hideTeachersToggle','demoHideTeachersToggle'].forEach(id=>{
     const b=document.getElementById(id);
-    if(b){ b.textContent = hidden ? '🙈 المدرّسون مخفيون — اضغط للإظهار' : '👤 إظهار أسماء المدرّسين'; b.classList.toggle('on', hidden); }
+    if(b){ b.textContent = hidden ? '🙈 المدرّسون مخفيون — اضغط للإظهار' : '👤 إخفاء أسماء المدرّسين'; b.classList.toggle('on', hidden); }
   });
 }
 function setViewFontSize(v){
   const p=demoTabIsActive()?demoViewPrefs():viewPrefs();
   p.fontSize=parseFloat(v)||12.5;
+  const synced=document.getElementById('fontSizeSelSettings'); if(synced) synced.value=String(p.fontSize);
   if(demoTabIsActive()){ applyDemoViewPrefsUI(); return; }
   saveState(); applyViewPrefsUI(); // تحديث فوري عبر متغيّر CSS دون إعادة رسم
 }
@@ -8103,8 +8161,6 @@ function generateTimetable(input, options){
   };
 }
 
-
-
 /* =========================================================
    تصدير الجداول محلياً: PNG / Excel XLSX / PDF
    لا يعتمد على CDN أو خدمات خارجية، ويحافظ على ألوان وهوية الجداول.
@@ -8116,6 +8172,10 @@ const EXPORT_COLORS = Object.freeze({
   red:'#fdecea', redText:'#b3261e', live:'#e9f5ee'
 });
 const EXPORT_MAX_CANVAS_DIMENSION = 16384;
+/* هامش PDF الإلزامي لكل صفحة مُصدَّرة: نصف سم من جميع الجهات —
+   يعالج انقسام الصفحات المتعددة (خاصة الجدول المجمّع) حيث كان المحتوى
+   يلامس الحافة السفلية. الطباعة الحقيقية (window.print) لا تُمَس إطلاقاً. */
+const PDF_EXPORT_MARGIN_PT = 5 * 72 / 25.4;   /* 5mm ≈ 14.17pt */
 
 function exportCell(text, options){
   return Object.assign({
@@ -8763,7 +8823,7 @@ async function exportBlobBytes(blob){
   });
 }
 async function exportPdfPagesFromCanvas(rendered){
-  const canvas=rendered.canvas, page=exportPdfPageSize(rendered.sheet), margin=22;
+  const canvas=rendered.canvas, page=exportPdfPageSize(rendered.sheet), margin=PDF_EXPORT_MARGIN_PT;
   const availableWidth=page.width-margin*2, availableHeight=page.height-margin*2;
   const maxSourceHeight=Math.max(1,Math.floor(availableHeight*canvas.width/availableWidth));
   const boundaries=(rendered.rowBottoms||[]).filter(n=>n>0&&n<canvas.height).sort((a,b)=>a-b);
@@ -8836,6 +8896,10 @@ async function buildExportPdfBlob(renderedSheets){
 }
 
 /* --------------------------- ملف Excel XLSX --------------------------- */
+/* خصائص قياسية تجعل الملف متوافقاً 100% مع Microsoft Excel وWPS وGoogle Sheets
+   على كل المنصات (تُقرأ الألوان والحدود والاتجاه RTL في الجميع). */
+const XLSX_CORE_PROPS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>الجدول الأسبوعي للمدارس المهنية</dc:creator><cp:lastModifiedBy>الجدول الأسبوعي للمدارس المهنية</cp:lastModifiedBy><dc:title>الجدول الأسبوعي</dc:title></cp:coreProperties>';
+const XLSX_APP_PROPS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Excel Compatible</Application><AppVersion>16.0300</AppVersion></Properties>';
 function xlsxEscape(value){
   return String(value==null?'':value)
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')
@@ -8984,15 +9048,15 @@ function buildXlsxBlob(model){
   const sheetXml=sheets.map(sheet=>xlsxSheetXml(sheet,styles));
   const contentTypes='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+
-    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'+
     sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>';
-  const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
   const workbook='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView rightToLeft="1"/></bookViews><sheets>'+names.map((name,i)=>'<sheet name="'+xlsxEscape(name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join('')+'</sheets></workbook>';
   const workbookRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
     sheets.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+
     '<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
   const files=[
-    {name:'[Content_Types].xml',data:contentTypes},{name:'_rels/.rels',data:rootRels},{name:'xl/workbook.xml',data:workbook},
+    {name:'[Content_Types].xml',data:contentTypes},{name:'_rels/.rels',data:rootRels},{name:'docProps/core.xml',data:XLSX_CORE_PROPS},{name:'docProps/app.xml',data:XLSX_APP_PROPS},{name:'xl/workbook.xml',data:workbook},
     {name:'xl/_rels/workbook.xml.rels',data:workbookRels},{name:'xl/styles.xml',data:styles.xml()}
   ];
   sheetXml.forEach((xml,index)=>files.push({name:'xl/worksheets/sheet'+(index+1)+'.xml',data:xml}));
@@ -9278,6 +9342,25 @@ function measurePrintExportHeight(packet, geometry){
   const height=Math.max(Math.ceil(probe.getBoundingClientRect().height||0),probe.scrollHeight||0,1);
   probe.remove(); return height;
 }
+function measurePrintRowBottoms(packet, geometry){
+  /* يقيس نهاية كل صف في وثيقة الطباعة بنفس تنسيقات الالتقاط المستخدمة في الرسم،
+     ليتوقف تقسيم صفحات PDF عند حدود الصفوف بدل قطع الصف الواحد في منتصفه بين صفحتين. */
+  try{
+    const probe=document.createElement('div');
+    probe.style.cssText='position:fixed;left:-100000px;top:0;width:'+geometry.contentWidth+'px;visibility:hidden;pointer-events:none;background:#fff;z-index:-1;';
+    probe.innerHTML='<style>'+exportCaptureStyles()+'</style><div class="exportCaptureScope" style="width:'+geometry.contentWidth+'px;direction:rtl;background:#fff;color:#1f2a37;">'+packet.html+'</div>';
+    document.body.appendChild(probe);
+    const scope=probe.querySelector('.exportCaptureScope');
+    const scopeTop=scope?scope.getBoundingClientRect().top:0;
+    const bottoms=[];
+    probe.querySelectorAll('tr').forEach(tr=>{
+      const r=tr.getBoundingClientRect();
+      if(r.height>0) bottoms.push(Math.round(r.bottom-scopeTop));
+    });
+    probe.remove();
+    return bottoms.filter(n=>Number.isFinite(n)&&n>0).sort((a,b)=>a-b);
+  }catch(error){ console.warn('تعذر قياس حدود الصفوف؛ سيُقسَّم PDF دون التثبيت على الصفوف.',error); return []; }
+}
 function exportMarkupForSvg(markup){
   /* SVG يُحلّل كـ XML: نحوّل كيانات HTML والوسوم الفارغة إلى صيغة XML صالحة. */
   return String(markup||'').replace(/&nbsp;/g,'&#160;').replace(/<(img|br|hr|input)(\b[^>]*?)?>/gi,(full,tag,attrs)=>/\/>$/.test(full)?full:'<'+tag+(attrs||'')+'/>');
@@ -9290,6 +9373,8 @@ function exportSvgDataURL(svg){
 function capturePrintDocumentCanvas(packet){
   return new Promise((resolve,reject)=>{
     const geometry=exportPaperGeometry(packet.layout), contentHeight=measurePrintExportHeight(packet,geometry);
+    /* حدود نهايات الصفوف من أعلى اللوحة (بكسل CSS) — لتقسيم صفحات PDF يحترم الصفوف */
+    const rowBottomsCss=measurePrintRowBottoms(packet,geometry).map(b=>geometry.margin+b);
     const fullHeight=Math.max(geometry.pageHeight,geometry.margin*2+contentHeight);
     const css=exportCaptureStyles(), markup=exportMarkupForSvg(packet.html);
     const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+geometry.pageWidth+'" height="'+fullHeight+'" viewBox="0 0 '+geometry.pageWidth+' '+fullHeight+'">'+
@@ -9304,7 +9389,7 @@ function capturePrintDocumentCanvas(packet){
         const made=exportMakeCanvas(), canvas=made.canvas, ctx=made.ctx;
         canvas.width=Math.max(1,Math.round(geometry.pageWidth*density)); canvas.height=Math.max(1,Math.round(fullHeight*density));
         ctx.scale(density,density); ctx.fillStyle='#fff'; ctx.fillRect(0,0,geometry.pageWidth,fullHeight); ctx.drawImage(image,0,0,geometry.pageWidth,fullHeight);
-        resolve({canvas,sheet:{paper:packet.layout.paper,orientation:packet.layout.orientation},rowBottoms:[],scale:density,printMatched:true,pagePixelHeight:Math.round(geometry.pageHeight*density),packet});
+        resolve({canvas,sheet:{paper:packet.layout.paper,orientation:packet.layout.orientation},rowBottoms:rowBottomsCss.map(b=>Math.round(b*density)),scale:density,printMatched:true,pagePixelHeight:Math.round(geometry.pageHeight*density),packet});
       }catch(error){ reject(error); }
     };
     image.onerror=()=>reject(new Error('تعذر تحويل ورقة الطباعة إلى صورة في هذا المتصفح.'));
@@ -9314,20 +9399,40 @@ function capturePrintDocumentCanvas(packet){
 function exportPrintCanvasPages(rendered){
   const source=rendered.canvas, pageHeight=Math.max(1,Math.round(rendered.pagePixelHeight||source.height));
   if(source.height<=pageHeight) return [source];
-  const pages=[];
-  for(let top=0;top<source.height;top+=pageHeight){
+  /* تقسيم يحترم الصفوف: تنتهي كل صفحة عند نهاية صف مكتمل، ولا يُقطع صف في المنتصف
+     بين صفحتين — الصف الذي لا يكتمل في الصفحة يبدأ صفحة جديدة كاملاً. */
+  const rows=(rendered.rowBottoms||[]).map(v=>Math.round(v))
+    .filter(v=>Number.isFinite(v)&&v>0&&v<source.height).sort((a,b)=>a-b);
+  const pages=[]; let top=0;
+  while(top<source.height){
+    let cut=top+pageHeight;
+    if(cut<source.height&&rows.length){
+      let best=0;
+      for(let i=0;i<rows.length;i++){ const b=rows[i]; if(b>top&&b<=cut&&b>best) best=b; }
+      if(best>top) cut=best; /* آخر صف يكتمل داخل حدود الصفحة */
+    }
+    cut=Math.min(cut,source.height);
     const made=exportMakeCanvas(), page=made.canvas, ctx=made.ctx;
     page.width=source.width; page.height=pageHeight; ctx.fillStyle='#fff'; ctx.fillRect(0,0,page.width,page.height);
-    const cropHeight=Math.min(pageHeight,source.height-top);
-    ctx.drawImage(source,0,top,source.width,cropHeight,0,0,page.width,cropHeight); pages.push(page);
+    const cropHeight=Math.min(cut-top,source.height-top);
+    if(cropHeight>0) ctx.drawImage(source,0,top,source.width,cropHeight,0,0,page.width,cropHeight);
+    pages.push(page);
+    if(cut<=top) break; /* أمان ضد التكرار اللانهائي */
+    top=cut;
   }
   return pages;
 }
 async function exportPdfPagesFromPrintCanvas(rendered){
   const page=exportPdfPageSize(rendered.sheet), pages=[];
+  /* كل صفحة PDF تُرسم داخل هامش نصف سم من جميع الجهات — لا يلامس المحتوى الحواف أبداً */
+  const m=PDF_EXPORT_MARGIN_PT, availW=page.width-m*2, availH=page.height-m*2;
   for(const canvas of exportPrintCanvasPages(rendered)){
     const jpeg=await canvasToExportBlob(canvas,'image/jpeg',.94), bytes=await exportBlobBytes(jpeg);
-    pages.push({width:page.width,height:page.height,x:0,y:0,drawWidth:page.width,drawHeight:page.height,pixelWidth:canvas.width,pixelHeight:canvas.height,bytes});
+    let drawWidth=availW, drawHeight=drawWidth*canvas.height/canvas.width;
+    if(drawHeight>availH){ drawHeight=availH; drawWidth=drawHeight*canvas.width/canvas.height; }
+    pages.push({width:page.width,height:page.height,
+      x:(page.width-drawWidth)/2, y:page.height-m-drawHeight,
+      drawWidth,drawHeight,pixelWidth:canvas.width,pixelHeight:canvas.height,bytes});
   }
   return pages;
 }
@@ -9355,15 +9460,15 @@ function buildVisualXlsxBlob(model, visuals){
   const sheetXml=entries.map(entry=>entry.kind==='visual'?xlsxVisualSheetXml(entry.visual,visualEntries.indexOf(entry)+1):xlsxSheetXml(entry.sheet,styles));
   const contentTypes='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>'+
-    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'+
     entries.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+
     visualEntries.map((_,i)=>'<Override PartName="/xl/drawings/drawing'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>').join('')+'</Types>';
-  const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
   const workbook='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView rightToLeft="1"/></bookViews><sheets>'+names.map((name,i)=>'<sheet name="'+xlsxEscape(name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join('')+'</sheets></workbook>';
   const workbookRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
     entries.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+
     '<Relationship Id="rId'+(entries.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
-  const files=[{name:'[Content_Types].xml',data:contentTypes},{name:'_rels/.rels',data:rootRels},{name:'xl/workbook.xml',data:workbook},{name:'xl/_rels/workbook.xml.rels',data:workbookRels},{name:'xl/styles.xml',data:styles.xml()}];
+  const files=[{name:'[Content_Types].xml',data:contentTypes},{name:'_rels/.rels',data:rootRels},{name:'docProps/core.xml',data:XLSX_CORE_PROPS},{name:'docProps/app.xml',data:XLSX_APP_PROPS},{name:'xl/workbook.xml',data:workbook},{name:'xl/_rels/workbook.xml.rels',data:workbookRels},{name:'xl/styles.xml',data:styles.xml()}];
   entries.forEach((entry,index)=>{
     const n=index+1; files.push({name:'xl/worksheets/sheet'+n+'.xml',data:sheetXml[index]});
     if(entry.kind==='visual'){
