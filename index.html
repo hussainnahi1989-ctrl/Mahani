@@ -1992,7 +1992,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
         <div class="checks">
           <label class="check"><input type="checkbox" id="genClear" checked> تفريغ الجداول الحالية قبل التوليد</label>
           <label class="check"><input type="checkbox" id="genSpread" checked> تجنّب تكرار المادة في اليوم</label>
-          <label class="check"><input type="checkbox" id="genAutoAssign" checked> موازنة إسناد المواد تلقائياً</label>
+          <label class="check"><input type="checkbox" id="genAutoAssign"> إكمال المواد غير المسندة تلقائياً (إسنادك اليدوي محفوظ دائماً)</label>
           <label class="check"><input type="checkbox" id="genAutoP" checked> محاولة حلول إضافية عند التعذّر</label>
         </div>
         <div class="row" style="margin-top:12px;align-items:flex-end;">
@@ -2089,6 +2089,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
 
   <div class="view-toolbar no-print" id="viewToolbar">
     <button class="tglbtn" id="colorToggle" onclick="toggleSubjectColors()">🎨 تلوين المواد</button>
+    <button class="tglbtn" id="hideTeachersToggle" type="button" onclick="toggleHideTeachers()">👤 إظهار أسماء المدرّسين</button>
     <label class="vt-label">حجم الخط
       <select id="fontSizeSel" onchange="setViewFontSize(this.value)">
         <option value="11">صغير</option>
@@ -2205,6 +2206,7 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
 
     <div class="view-toolbar no-print" id="demoViewToolbar" aria-label="إعدادات عرض الجدول التجريبي">
       <button class="tglbtn" id="demoColorToggle" type="button" onclick="toggleSubjectColors()">🎨 تلوين المواد</button>
+      <button class="tglbtn" id="demoHideTeachersToggle" type="button" onclick="toggleHideTeachers()">👤 إظهار أسماء المدرّسين</button>
       <label class="vt-label">حجم الخط
         <select id="demoFontSizeSel" onchange="setViewFontSize(this.value)">
           <option value="11">صغير</option>
@@ -2912,6 +2914,9 @@ function finishFirstRunOnboarding(){
   return true;
 }
 function scheduleFirstRunOnboarding(){
+  /* بناءً على الطلب: بطاقات «بيانات المدرسة» لا تظهر تلقائياً عند الإقلاع إطلاقاً —
+     يكتفي الزبون باستخدام التطبيق، ويُكمل الاسم والمدير والنوع لاحقاً من تبويب الإعدادات. */
+  return;
   if(window.__P9_TESTS__ || hasCompletedSchoolProfile()) return;
   clearTimeout(VTS_ONBOARDING_TIMER);
   VTS_ONBOARDING_TIMER=setTimeout(showFirstRunOnboarding, Math.max(0,(typeof SPLASH_TOTAL_MS==='number'?SPLASH_TOTAL_MS:4000)+90));
@@ -2962,7 +2967,7 @@ function emptySchedulesFor(classes){
    المدرسين أو الشُعب النموذجية الجديدة لمجرد أن حقلاً قديماً كان غائباً. */
 function storedStateBase(){
   return {
-    settings:{ schoolName:"", principalName:"", schoolGender:"", onboardingComplete:false, schoolYear:"2026 - 2027", weekDays:6, periodsPerDay:6, periodLen:45, practicalCapPerDay:4, dayMode:"am", amStartH:8, amStartM:0, pmStartH:13, pmStartM:0, amCount:0, breakMin:5, longAfter:0, longMin:15, alertsOn:false, theme:"light", logo:DEFAULT_SCHOOL_LOGO_DATA_URI, logoHidden:false },
+    settings:{ schoolName:"", principalName:"", schoolGender:"", onboardingComplete:false, schoolYear:"2026 - 2027", weekDays:6, periodsPerDay:6, periodLen:45, practicalCapPerDay:4, dayMode:"am", amStartH:8, amStartM:0, pmStartH:13, pmStartM:0, amCount:0, breakMin:5, longAfter:0, longMin:15, alertsOn:false, theme:"light", logo:DEFAULT_SCHOOL_LOGO_DATA_URI, logoHidden:false, hideTeacherNames:false },
     branches: branchList().slice(),      // قاعدة النسخ القديمة: كل الفروع كما كان سابقاً
     customBranches: [],                  // فروع أضافها المستخدم («أخرى») غير موجودة في القائمة الرسمية
     customDepartments: {},                // أقسام يدوية حسب الفرع { branch: [قسم مضاف, ...] } — مستقلة عن اختيار التفعيل
@@ -3970,7 +3975,7 @@ function renderDashboard(){
         h+='<tr><td class="td-name">'+esc(r.name)+'</td>';
         for(let p=1;p<=data.P;p++){
           const c=r.cells[p-1]; const live=(data.curPeriod===p);
-          h+='<td class="'+(live?'cell-live':'')+'">'+(c?'<div style="font-weight:700;">'+esc(c.subject)+'</div><div class="meta" style="font-size:10.5px;">'+(c.type==='تطبيقي'?'تطبيقي':'نظري')+(c.teacher?' · '+esc(c.teacher):'')+'</div>':'—')+'</td>';
+          h+='<td class="'+(live?'cell-live':'')+'">'+(c?'<div style="font-weight:700;">'+esc(c.subject)+'</div><div class="meta" style="font-size:10.5px;">'+(c.type==='تطبيقي'?'تطبيقي':'نظري')+(c.teacher && !teachersHiddenFor() ? ' · '+esc(c.teacher):'')+'</div>':'—')+'</td>';
         }
         h+='</tr>';
       });
@@ -4415,6 +4420,33 @@ function onCellSubjectChange(presetType){
   hint.textContent = 'النصاب الحالي لهذه المادة — ' + parts.join(' | ');
 }
 function closeCellModal(){ document.getElementById('cellModalBg').classList.remove('open'); currentCell=null; }
+/* حارس التضارب: يمنع حجز المدرّس في مكانين بنفس اليوم/الحصة، أو وضعه في يوم/حصة ممنوعة له.
+   يعيد رسالة الخطأ أو نصاً فارغاً عند السماح — يُستخدم في التعديل اليدوي للخلايا. */
+function teacherBookingConflict(state, classId, day, period, teacher){
+  const name=String(teacher||'').trim();
+  if(!name) return '';
+  const key=String(day)+'-'+Number(period);
+  let where='';
+  try{
+    (state.classes||[]).some(other=>{
+      if(!other || other.id===classId) return false;
+      const cell=((state.schedules||{})[other.id]||{})[key];
+      if(cell && String(cell.teacher||'').trim()===name){ where=other.name||other.id; return true; }
+      return false;
+    });
+  }catch(e){}
+  if(where) return `⛔ تضارب: المدرّس «${name}» مشغول في ${day} — الحصة ${period} مع شعبة «${where}». اختر مدرّساً آخر أو غيّر الحصة.`;
+  try{
+    const info=(state.teachers||[]).find(t=>String(t.name||'').trim()===name);
+    if(info){
+      if((info.offDays||[]).map(String).includes(String(day)))
+        return `⛔ «${name}» يوم إجازته ${day} — اختر يوماً آخر أو عدّل الإجازات من تبويب المدرّسين.`;
+      if((info.offPeriods||[]).map(Number).includes(Number(period)))
+        return `⛔ الحصة ${period} ممنوعة للمدرّس «${name}» — غيّر الحصة أو عدّل الممنوعات من تبويب المدرّسين.`;
+    }
+  }catch(e){}
+  return '';
+}
 function saveCell(){
   if(!currentCell) return;
   const edit=Object.assign({},currentCell), state=editingState();
@@ -4430,10 +4462,15 @@ function saveCell(){
     let type = null;
     if(row && row[1]>0 && row[2]>0) type = document.getElementById('cellType').value;
     else if(row) type = row[1]>0 ? 'نظري' : 'تطبيقي';
+    const teacherVal = document.getElementById('cellTeacher').value.trim();
+    if(edit.source !== 'demo'){
+      const conflict = teacherBookingConflict(state, edit.classId, edit.day, edit.period, teacherVal);
+      if(conflict){ alert(conflict); return; }
+    }
     state.schedules[edit.classId][key] = {
       subject: subj,
       type: type,
-      teacher: document.getElementById('cellTeacher').value.trim(),
+      teacher: teacherVal,
       room: document.getElementById('cellRoom').value.trim()
     };
   }
@@ -4554,8 +4591,17 @@ function subjectBgStyle(subject,state){
   const color=subjectColorMap(state)[subject];
   return color ? `background:${color};` : '';
 }
+/* إخفاء أسماء المدرّسين عن جميع الجداول (شاشة/طباعة/تصدير) — تظهر المواد فقط، قابل للإرجاع.
+   person بحرف '👤' يعني مدرّساً؛ أما '🏫' فيعني اسم الشعبة في جداول المدرّسين فيبقى ظاهراً. */
+function teachersHiddenFor(state){
+  try{
+    const s = state && state.settings ? state.settings : STATE.settings;
+    return s.hideTeacherNames === true;
+  }catch(e){ return false; }
+}
 /* محتوى الخلية مع مراعاة موقع المدرّس (تحت/بجانب). */
 function cellBody(subject,type,person,room,state){
+  if(person && person.icon === '👤' && teachersHiddenFor(state)) person = null;
   const beside=viewPrefsForState(state).teacherPosition==='beside';
   let html=`<div class="cell-subj">${esc(subject||'')}</div>`;
   if(beside && person) html=`<div class="cell-subj">${esc(subject||'')} <span class="cell-teacher-inline">${person.icon} ${esc(person.text)}</span></div>`;
@@ -4568,6 +4614,7 @@ function cellBody(subject,type,person,room,state){
 function printFontScale(state){ return (viewPrefsForState(state).fontSize||12.5)/12.5; }
 function printBorderW(state){ return viewPrefsForState(state).borderWidth||1; }
 function printCellBody(subject,type,person,room,fs,state){
+  if(person && person.icon === '👤' && teachersHiddenFor(state)) person = null;
   const beside=viewPrefsForState(state).teacherPosition==='beside';
   let html=`<div style="font-weight:700;font-size:${fs}px;color:${PRINT_INK};">${esc(subject||'')}</div>`;
   if(beside && person) html=`<div style="font-weight:700;font-size:${fs}px;color:${PRINT_INK};">${esc(subject||'')} <span style="font-size:${fs-1.5}px;color:#6b7f76;">${person.icon} ${esc(person.text)}</span></div>`;
@@ -4611,6 +4658,7 @@ function applyViewPrefsUI(){
   applyRootViewPrefs(p);
   syncViewPrefsControls('app',p);
   syncViewPrefsControls('demo',demoViewPrefs());
+  syncHideTeachersButtons();
 }
 function applyDemoViewPrefsUI(){
   const p=demoViewPrefs();
@@ -4626,6 +4674,23 @@ function toggleSubjectColors(){
   viewPrefs().colorSubjects = !viewPrefs().colorSubjects;
   saveState();
   renderCurrentTables();
+}
+/* مفتاح إخفاء/إظهار أسماء المدرّسين — يشمل كل الجداول والطباعة والتصدير. */
+function toggleHideTeachers(){
+  STATE.settings.hideTeacherNames = !(STATE.settings.hideTeacherNames === true);
+  saveState();
+  syncHideTeachersButtons();
+  try{ renderCurrentTables(); }catch(e){}
+  try{ renderScheduleGrid(); }catch(e){}
+  try{ renderDemoCurrentView(); }catch(e){}
+  try{ renderPrintPreview(); }catch(e){}
+}
+function syncHideTeachersButtons(){
+  const hidden = STATE.settings.hideTeacherNames === true;
+  ['hideTeachersToggle','demoHideTeachersToggle'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b){ b.textContent = hidden ? '🙈 المدرّسون مخفيون — اضغط للإظهار' : '👤 إظهار أسماء المدرّسين'; b.classList.toggle('on', hidden); }
+  });
 }
 function setViewFontSize(v){
   const p=demoTabIsActive()?demoViewPrefs():viewPrefs();
@@ -6191,6 +6256,19 @@ function autoBalanceAssignments(options){
     load[teacher.name]=0;
     loadByLimit[teacher.name]=new Array(maxRelevantPeriod+1).fill(0);
   });
+  /* إسناد الزبون اليدوي (تبويب إسناد المواد) قانون غير قابل للتجاوز:
+     يبقى كما هو، وتُحسب حمولته، والموازنة التلقائية تُكمل المواد غير المسندة فقط. */
+  const manual={};
+  if(isPlainRecord(STATE.assignments)) Object.keys(STATE.assignments).forEach(cid=>{
+    const row=STATE.assignments[cid];
+    if(row && typeof row==='object' && !Array.isArray(row)){
+      manual[cid]={};
+      Object.keys(row).forEach(subj=>{
+        const name=String(row[subj]||'').trim();
+        if(name) manual[cid][subj]=name;
+      });
+    }
+  });
   STATE.classes.forEach(cls=>{ asg[cls.id]={}; });
   const totalDemand=items.reduce((sum,item)=>sum+item.n,0);
   const totalCapacity=(STATE.teachers||[]).reduce((sum,teacher)=>sum+capOf(teacher),0);
@@ -6198,6 +6276,17 @@ function autoBalanceAssignments(options){
      ثمينة ولا يجوز أن نرفض إسناداً ممكناً لمجرد هامش ثابت. */
   const safetyMargin=totalCapacity-totalDemand>=(STATE.teachers||[]).length*3?3:0;
   items.forEach(item=>{
+    /* المواد المسندة يدوياً تبقى على مدرّسها دون أي تغيير */
+    if(!asg[item.cid]) asg[item.cid]={};
+    const fixed=manual[item.cid] && manual[item.cid][item.subj];
+    if(fixed){
+      asg[item.cid][item.subj]=fixed;
+      if(load[fixed]!=null){
+        load[fixed]+=item.n;
+        for(let h=item.limit;h<=maxRelevantPeriod;h++) loadByLimit[fixed][h]+=item.n;
+      }
+      return;
+    }
     const names=(STATE.teachers||[]).map(teacher=>teacher.name);
     const eligible=names.filter(name=>{
       const teacher=byName[name], totalCap=capOf(teacher);
@@ -7472,6 +7561,8 @@ function generateTimetable(input, options){
     const t = a && a[subj] ? String(a[subj]).trim() : '';
     return t;
   };
+  /* مواد الأولوية الزمنية: الرياضيات والعلوم تُدفَع إلى الحصتين الأولى والثانية قدر الإمكان. */
+  const isPrioritySubject = s => /الرياضيات|العلوم/.test(String(s || ''));
 
   /* ---------- 1) خصم الحصص المثبّتة ثم بناء المهام ---------- */
   const preCounts = {};
@@ -7596,9 +7687,15 @@ function generateTimetable(input, options){
   function countOptions(step){
     const t = step.task, g = grids[t.cid], limit=periodLimitOf(t.cid);
     if(step.kind === 'unit'){
+      /* الرياضيات والعلوم تُعَدّ الأضيق (نحصي الخيارات المبكرة فقط) كي تختارها
+         MRV أولاً وتحجز الحصتين الأولى والثانية قبل باقي المواد. */
+      const restrict = (opt.prioritySubjects !== false) && isPrioritySubject(t.subject);
       let n = 0;
-      for(let d = 0; d < D; d++) for(let p = 0; p < limit; p++) if(!g[idx(d,p)] && teacherFree(t.teacher, d, p)) n++;
-      return n;
+      for(let d = 0; d < D; d++) for(let p = 0; p < limit; p++){
+        if(restrict && p >= 2) continue;
+        if(!g[idx(d,p)] && teacherFree(t.teacher, d, p)) n++;
+      }
+      return Math.max(1, n);
     }
     if(step.offset > 0 && !t.chosen) return Infinity;      // لم يُحدَّد نمط الأيام بعد
     let n = 0;
@@ -7625,8 +7722,10 @@ function generateTimetable(input, options){
         const bal = (opt.balanceDays !== false) ? occByDay[d] * 0.35 : 0;   // نُرجّح اليوم الأقل امتلاءً ← توزيع متوازن حسب النصاب وعدد الحصص
         for(let p = 0; p < limit; p++){
           if(g[idx(d,p)] || !teacherFree(t.teacher, d, p)) continue;
-          /* ترتيب الحصة يحافظ على البادئة المتصلة؛ لا تمييز بين أسماء المواد. */
-          out.push({ d, p, score: base + bal + p * 2.5 + rnd() * 0.15 });
+          /* أولوية الرياضيات والعلوم: عقوبة وازنة على الحصص بعد الثانية، والبحث
+             يتراجع عنها فقط عندما لا يجد بديلاً (قدر الإمكان دون كسر أي قيد). */
+          const prioLate = (opt.prioritySubjects !== false) && isPrioritySubject(t.subject) && p >= 2 ? 10 : 0;
+          out.push({ d, p, score: base + bal + p * 2.5 + prioLate + rnd() * 0.15 });
         }
       }
       return out;
@@ -8063,6 +8162,7 @@ function exportSubjectFill(subject,state){
 }
 function exportLessonCell(cell, personText, conflict,state){
   if(!cell || !cell.subject) return exportCell('');
+  if(personText && teachersHiddenFor(state)) personText='';
   const lines=[cell.subject];
   if(cell.type) lines.push(cell.type);
   if(personText) lines.push(personText);
