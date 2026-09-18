@@ -1,5 +1,5 @@
 /* ===== Service Worker — يجعل التطبيق يعمل أوفلاين وقابل للتثبيت ===== */
-const VERSION = 'mahani-v12';
+const VERSION = 'mahani-v13';
 const PRECACHE = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const PRECACHE = [
   './manifest.webmanifest',
   './config.js',
   './license-online.js',
+  './prefix-optimizer-runtime.js',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png'

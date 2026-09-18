@@ -6647,6 +6647,48 @@ function solvePrefixModelWithHighs(highs, input, options){
   return {ok:true,schedules,quality,meta:{variables:variables.length,rows:rows.length,nonzeros,ms:Date.now()-t0,status}};
 }
 
+/* عند إثبات استحالة النموذج الدقيق: نحدد الجاني بدقة — نجرب إسقاط إسناد
+   كل مدرّس مرشّح (الأعلى تحميلاً أولاً) ونحل من جديد؛ أول مدرّس يصبح معه
+   النموذج قابلاً للحل هو سبب الاستحالة، ونعرضه للمستخدم مع تفصيله. */
+let PREFIX_INFEASIBLE_DIAGNOSIS = null;
+async function diagnosePrefixInfeasibility(highs, input, options){
+  const opts = options || {};
+  const feasible = solvePrefixModelWithHighs(highs, input, opts);
+  if(feasible.ok) return null;                       /* النموذج صالح — لا تشخيص */
+  if(feasible.reason && ['pinned-or-empty','model-limit','solver-error','no-solution','incomplete-incumbent'].includes(feasible.reason)) return null;
+  const load = Object.create(null);
+  (input.classes||[]).forEach(cls => {
+    const plan = cls.plan || [], m = input.assignments && input.assignments[cls.id] || {};
+    plan.forEach(row => {
+      const t = String((m[row && row[0]]) || '').trim();
+      if(!t) return;
+      load[t] = (load[t] || 0) + (Math.max(0, Number(row && row[1]) || 0) + Math.max(0, Number(row && row[2]) || 0));
+    });
+  });
+  const ranked = Object.keys(load).sort((a,b) => load[b] - load[a]).slice(0, 6);
+  const detailsOf = teacher => {
+    const rows = [];
+    (input.classes||[]).forEach(cls => {
+      const m = input.assignments && input.assignments[cls.id] || {};
+      (cls.plan||[]).forEach(row => {
+        if(String((m[row && row[0]]) || '').trim() === teacher)
+          rows.push({ className: cls.name || cls.id, subject: row[0], lessons: (Number(row && row[1]) || 0) + (Number(row && row[2]) || 0) });
+      });
+    });
+    return rows;
+  };
+  for(const teacher of ranked){
+    const probe = JSON.parse(JSON.stringify(input));
+    Object.keys(probe.assignments || {}).forEach(cid => {
+      const m = probe.assignments[cid];
+      Object.keys(m).forEach(subj => { if(String(m[subj] || '').trim() === teacher) m[subj] = ''; });
+    });
+    let ok = false;
+    try{ ok = solvePrefixModelWithHighs(highs, probe, opts).ok; }catch(err){ ok = false; }
+    if(ok) return { culprit: teacher, load: load[teacher], details: detailsOf(teacher) };
+  }
+  return { culprit: null, load: 0, details: [] };
+}
 async function optimizePrefixWithHighs(input, options, nativeResult){
   let highs;
   try{ highs=await ensurePrefixHighs(); }catch(err){ return {ok:false,failed:true,reason:'runtime-unavailable'}; }
@@ -6724,6 +6766,7 @@ function runGenerator(newSeed){
   );
 
   let si = 0, best = null, raisedTo = null;
+  PREFIX_INFEASIBLE_DIAGNOSIS = null;
   /* نحمل سبب فشل المحسن إلى التقرير النهائي حتى لا يضيع بين محاولات البذور. */
   const optimizerFailures=[];
   /* لا نكرر نموذج القيود الثقيل للحصص اليومية نفسها إذا لم يجد حلاً. */
@@ -6829,6 +6872,18 @@ function runGenerator(newSeed){
             /* احتفظ بسبب المسار الاحتياطي للتقرير، مع الاستمرار في السُلّم. */
             if(optimized && optimized.reason) optimizerFailures.push(optimized.reason);
             if(prefixCandidate && prefixCandidate.report && optimized && optimized.reason) prefixCandidate.report.optimizerFailure=optimized.reason;
+            if(optimized && optimized.reason==='prefix-infeasible'){
+              /* استحالة مثبتة رياضياً: نحدد السبب بدقة وننتهي فوراً — المزيد من المراحل لن يغير حكماً رياضياً. */
+              if(!PREFIX_INFEASIBLE_DIAGNOSIS){
+                prog.innerHTML='<div class="meta">🔍 المُحسِّن الدقيق أثبت استحالة الجدول بالإسناد الحالي — جارٍ تحديد السبب بدقة…</div>';
+                ensurePrefixHighs()
+                  .then(highs => diagnosePrefixInfeasibility(highs, modelInput, { practicalCapPerDay:cap, prefixSolverSeconds:30 }))
+                  .then(diag => { PREFIX_INFEASIBLE_DIAGNOSIS = diag || null; })
+                  .catch(() => { PREFIX_INFEASIBLE_DIAGNOSIS = null; })
+                  .then(() => { if(runSerial===GENERATION_RUN_SERIAL) finish(); });
+                return;
+              }
+            }
             runStage();
           })
           .catch(()=>runStage());
@@ -6912,7 +6967,16 @@ function renderGenReport(result){
       'prefix-infeasible':'لا يمكن تحقيق اكتمال النصاب وبداية يوم متصلة مع تفرّغ المدرّسين وسعة الحصص الحالية؛ زد السعة أو عدّل الإسناد/التفرّغ.',
       'incomplete-incumbent':'انتهت مهلة مُحسّن الرصّ قبل شهادة الحل الكاملة.'
     };
-    html += `<div class="report-box bad"><b>ℹ️ نتيجة مُحسّن الرصّ</b><div class="meta">${esc(prefixHint[r.optimizerFailure]||'تعذر على مُحسّن القيود إيجاد جدول كامل يمرّ بالفحص؛ لم تُستبدل الجداول الحالية.')}</div></div>`;
+    if(r.optimizerFailure==='prefix-infeasible' && PREFIX_INFEASIBLE_DIAGNOSIS && PREFIX_INFEASIBLE_DIAGNOSIS.culprit){
+      const d=PREFIX_INFEASIBLE_DIAGNOSIS;
+      const det=d.details.map(x=>`${x.subject} (${x.className}) ${toArabicNum(x.lessons)} حصص`).join('، ');
+      html += `<div class="report-box bad"><b>⛔ التوليد مستحيل رياضياً بالإسناد الحالي — المُحسِّن الدقيق أثبت ذلك وحدّد السبب</b>
+        <div class="meta">المدرّس «${esc(d.culprit)}» محمّل ${toArabicNum(d.load)} حصة عبر: ${esc(det)}.
+        هذه الكتل (خاصة كتل العملي الكاملة الأيام) لا تتسع في أسبوعه مع كتل باقي المدرّسين في الشُعب نفسها وقاعدة بداية اليوم المتصلة.</div>
+        <div class="meta"><b>الحل المقترح:</b> من تبويب «إسناد المواد» انقل مادة واحدة على الأقل من مواد «${esc(d.culprit)}» إلى مدرّس آخر (يفضَّل مدرّس تحميله أقل)، ثم أعد التوليد — وسيتولّد الجدول كاملاً بإذن الله.</div></div>`;
+    }else{
+      html += `<div class="report-box bad"><b>ℹ️ نتيجة مُحسّن الرصّ</b><div class="meta">${esc(prefixHint[r.optimizerFailure]||'تعذر على مُحسّن القيود إيجاد جدول كامل يمرّ بالفحص؛ لم تُستبدل الجداول الحالية.')}</div></div>`;
+    }
   }
   if(r.infeasible.length){
     html += `<div class="report-box bad"><b>⛔ قيود مستحيلة — يجب معالجتها قبل التوليد</b>
