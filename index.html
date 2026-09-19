@@ -6951,7 +6951,10 @@ function renderGenReport(result){
     html += `<div class="report-box bad"><b>⚠ خرق تفرّغ مدرّس في حصص مثبتة أو موجودة</b>
       <ul>${r.ruleViolations.map(esc).map(x => `<li>${x}</li>`).join('')}</ul></div>`;
   }
-  if(r.integrityIssues && r.integrityIssues.length){
+  const infeasibleProven = r.optimizerFailure==='prefix-infeasible' && typeof PREFIX_INFEASIBLE_DIAGNOSIS!=='undefined' && PREFIX_INFEASIBLE_DIAGNOSIS && PREFIX_INFEASIBLE_DIAGNOSIS.culprit;
+  if(r.integrityIssues && r.integrityIssues.length && !infeasibleProven){
+    /* عند استحالة مثبتة بجاني محدد: نحذف قائمة «النقص» الطويلة لأنها مضللة —
+       إنها حصص توقف التوليد عن وضعها، وليست مواداً بلا مدرّس. */
     const shown=r.integrityIssues.slice(0,12), rest=r.integrityIssues.length-shown.length;
     html += `<div class="report-box bad"><b>⛔ فحص الجودة الصارم رفض النتيجة</b>
       <div class="meta">لا يعتمد التطبيق جدولاً فيه تعارض أو فراغ يسبق درساً أو مخالفة للتفرّغ/العملي.</div>
@@ -6971,9 +6974,11 @@ function renderGenReport(result){
       const d=PREFIX_INFEASIBLE_DIAGNOSIS;
       const det=d.details.map(x=>`${x.subject} (${x.className}) ${toArabicNum(x.lessons)} حصص`).join('، ');
       html += `<div class="report-box bad"><b>⛔ التوليد مستحيل رياضياً بالإسناد الحالي — المُحسِّن الدقيق أثبت ذلك وحدّد السبب</b>
-        <div class="meta">المدرّس «${esc(d.culprit)}» محمّل ${toArabicNum(d.load)} حصة عبر: ${esc(det)}.
-        هذه الكتل (خاصة كتل العملي الكاملة الأيام) لا تتسع في أسبوعه مع كتل باقي المدرّسين في الشُعب نفسها وقاعدة بداية اليوم المتصلة.</div>
-        <div class="meta"><b>الحل المقترح:</b> من تبويب «إسناد المواد» انقل مادة واحدة على الأقل من مواد «${esc(d.culprit)}» إلى مدرّس آخر (يفضَّل مدرّس تحميله أقل)، ثم أعد التوليد — وسيتولّد الجدول كاملاً بإذن الله.</div></div>`;
+        <div class="meta"><b>إسناداتك كاملة وصحيحة ✔ — أرقام «النقص» أعلاه ليست نقصاً في الإسناد:</b>
+        هي حصص أوقف التوليد وضعَها في الشبكة بسبب الاستحالة أدناه (فلا يعتمد جدولاً جزئياً أو متعارضاً أبداً).</div>
+        <div class="meta">السبب: المدرّس «${esc(d.culprit)}» محمّل ${toArabicNum(d.load)} حصة عبر: ${esc(det)}.
+        هذه الكتل (خاصة كتل العملي التي تمتلئ أياماً كاملة) لا تتسع في أسبوعه (٥ أيام) مع كتل باقي المدرّسين وقاعدة بداية اليوم المتصلة — هذا إثبات رياضي لا تخمين.</div>
+        <div class="meta"><b>الحل المقترح (دقيقة واحدة):</b> من تبويب «إسناد المواد» افتح إحدى الشُعب المذكورة أعلاه، وغيّر مدرّس مادة «${esc(d.details[0] ? d.details[0].subject : 'المادة')}» من «${esc(d.culprit)}» إلى مدرّس آخر تحميله أخف — شعبة واحدة تكفي — ثم أعد التوليد، وسيتولّد الجدول كاملاً بإذن الله.</div></div>`;
     }else{
       html += `<div class="report-box bad"><b>ℹ️ نتيجة مُحسّن الرصّ</b><div class="meta">${esc(prefixHint[r.optimizerFailure]||'تعذر على مُحسّن القيود إيجاد جدول كامل يمرّ بالفحص؛ لم تُستبدل الجداول الحالية.')}</div></div>`;
     }
@@ -6984,7 +6989,7 @@ function renderGenReport(result){
   }
   if(r.ok){
     html += `<div class="report-box good" data-optimizer="${r.optimizer ? 'true' : 'false'}" style="margin-top:10px;"><b>✔ تم توليد الجدول: ${toArabicNum(r.placed)}/${toArabicNum(r.total)} حصة</b></div>`;
-  } else if(!r.infeasible.length){
+  } else if(!r.infeasible.length && !infeasibleProven){
     const missingRows=r.missing||[], byClass={};
     missingRows.forEach(m => { (byClass[m.className] = byClass[m.className] || []).push(`${m.subject} (${m.type}) ×${m.missing}`); });
     const hasMissing=missingRows.length>0, dg=diagnoseFeasibility();
