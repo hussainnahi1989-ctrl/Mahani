@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الجدول المدرسي — لوحة إدارة التفعيل</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);min-height:100vh;color:#fff;padding:20px}
+.container{max-width:750px;margin:0 auto}
+
+/* ===== Main Menu ===== */
+.main-menu{padding:20px 0}
+.menu-header{text-align:center;padding:30px 0 30px}
+.menu-header h1{font-size:28px;background:linear-gradient(135deg,#f5af19,#f12711);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.menu-header p{color:#888;font-size:14px}
+.apps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:20px}
+.app-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;cursor:pointer;transition:transform .2s,border-color .2s;backdrop-filter:blur(10px)}
+.app-card:hover{transform:translateY(-3px);border-color:rgba(245,175,25,.4)}
+.app-card .icon{font-size:40px;margin-bottom:12px}
+.app-card h3{font-size:18px;margin-bottom:6px;color:#f5af19}
+.app-card p{font-size:13px;color:#aaa;line-height:1.6}
+.app-card .badge{display:inline-block;margin-top:10px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(245,175,25,.15);color:#f5af19}
+
+/* ===== App Panel ===== */
+.app-panel{display:none}
+.app-panel.active{display:block}
+.back-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:transparent;color:#aaa;font-family:inherit;font-size:13px;cursor:pointer;margin-bottom:16px;transition:color .2s}
+.back-btn:hover{color:#fff}
+.panel-header{text-align:center;padding:20px 0 16px}
+.panel-header .icon{font-size:36px;margin-bottom:8px}
+.panel-header h2{font-size:24px;background:linear-gradient(135deg,#f5af19,#f12711);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.panel-header p{color:#888;font-size:13px}
+
+.card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;margin-bottom:20px;backdrop-filter:blur(10px)}
+.card h3{font-size:16px;color:#f5af19;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card h3 span{font-size:20px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;color:#bbb;margin-bottom:5px}
+.form-group input,.form-group select{width:100%;padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:14px;outline:none;transition:border-color .2s}
+.form-group input:focus{border-color:#f5af19}
+.form-group input::placeholder{color:#555}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 22px;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:linear-gradient(135deg,#f5af19,#f12711);color:#fff;box-shadow:0 4px 15px rgba(245,175,25,.3)}
+.btn-success{background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff;box-shadow:0 4px 15px rgba(17,153,142,.3)}
+.btn-whatsapp{background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;box-shadow:0 4px 15px rgba(37,211,102,.3)}
+.btn-copy{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.btn-danger{background:linear-gradient(135deg,#c62828,#e53935);color:#fff}
+.btn-sm{padding:6px 12px;font-size:11px;border-radius:6px}
+.btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.result-box{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px;margin-top:14px;word-break:break-all;font-family:'Courier New',monospace;font-size:14px;letter-spacing:.5px;text-align:center;color:#38ef7d;min-height:48px;display:flex;align-items:center;justify-content:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;text-align:center}
+.stat-card strong{display:block;font-size:22px;color:#f5af19;margin-bottom:3px}
+.stat-card span{font-size:11px;color:#888}
+.history-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:8px;margin-bottom:6px;font-size:12px}
+.history-item .code{font-family:monospace;color:#38ef7d;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-item .info{flex:1;min-width:0}
+.history-item .info .name{font-weight:700;margin-bottom:2px}
+.history-item .info .date{color:#888;font-size:10px}
+.history-item .actions{display:flex;gap:4px;flex-shrink:0}
+.empty-state{text-align:center;padding:24px;color:#666;font-size:13px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#38ef7d;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+.revoke-result{margin-top:12px;padding:10px;border-radius:8px;font-size:13px;display:none}
+.revoke-result.success{background:rgba(56,239,125,.15);color:#38ef7d;display:block}
+.revoke-result.error{background:rgba(239,83,80,.15);color:#ef5350;display:block}
+/* ===== جدول الحسابات ===== */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid rgba(255,255,255,.08)}
+.acct-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px}
+.acct-table th{background:rgba(255,255,255,.06);color:#f5af19;font-size:11.5px;padding:10px 12px;text-align:right;white-space:nowrap}
+.acct-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap}
+.acct-table tr:last-child td{border-bottom:none}
+@media(max-width:600px){.stats{grid-template-columns:1fr}.btn-group{flex-direction:column}.apps-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ===== MAIN MENU ===== -->
+  <div id="mainMenu" class="main-menu">
+    <div class="menu-header">
+      <h1>🔐 لوحة إدارة التفعيل</h1>
+      <p>إدارة أكواد التفعيل لجميع التطبيقات</p>
+    </div>
+    <div class="apps-grid" id="appsGrid"></div>
+    <div style="margin-top:18px">
+      <div class="app-card" style="border-color:rgba(56,239,125,.35)" onclick="openAccounts()">
+        <div class="icon">💰</div>
+        <h3 style="color:#38ef7d">الحسابات</h3>
+        <p>سجل المبيعات: اسم الزبون، مبلغ الشراء، والتاريخ يُسجَّل تلقائياً</p>
+        <span class="badge" style="background:rgba(56,239,125,.15);color:#38ef7d" id="acctsBadge">0 عملية</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== APP PANEL (dynamic) ===== -->
+  <div id="appPanel" class="app-panel">
+    <button class="back-btn" onclick="showMainMenu()">→ رجوع للقائمة</button>
+    <div id="appPanelContent"></div>
+  </div>
+
+  <!-- ===== ACCOUNTS PANEL ===== -->
+  <div id="accountsPanel" class="app-panel">
+    <button class="back-btn" onclick="showMainMenu()">→ رجوع للقائمة</button>
+    <div id="accountsContent"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== APPS REGISTRY =====
+const APPS = [
+  {
+    id: 'school',
+    name: 'المنظومة المدرسية',
+    icon: '🏫',
+    desc: 'نظام شامل لإدارة المدرسة وإصدار النتائج مع أكثر من 20 قالب احترافي',
+    badge: 'نشط',
+    secret: 'HSM_2026_SCHOOL_SYS',
+    waNumber: '9647712080871',
+    storageKey: 'hsm_school_activation_history'
+  },
+  /* ===== الجدول المدرسي — مولّد بنفس خوارزمية التطبيق =====
+     مخزن مستقل تماماً؛ لا يمسّ بيانات المنظومة المدرسية */
+  {
+    id: 'schedule',
+    name: 'الجدول المدرسي',
+    icon: '🗓️',
+    desc: 'برنامج إعداد الجداول المدرسية — مفتاح دائم مربوط برمز جهاز الزبون',
+    badge: 'نشط',
+    keyType: 'schedule',
+    waNumber: '9647712080871',
+    storageKey: 'msd_schedule_activation_history'
+  },
+  /* ===== نظام المخاطبات الرسمية — مولّد بنفس خوارزمية التطبيق =====
+     مخزن مستقل تماماً؛ لا يمسّ بيانات المنظومة ولا الجدول المدرسي */
+  {
+    id: 'mkh',
+    name: 'نظام المخاطبات الرسمية',
+    icon: '📨',
+    desc: 'نظام الكتب والمخاطبات المدرسية الرسمية — مفتاح دائم مربوط برمز جهاز الزبون',
+    badge: 'نشط',
+    keyType: 'mkh',
+    waNumber: '9647712080871',
+    storageKey: 'mkh_letters_activation_history'
+  },
+  /* ===== نظام نتائج المدرسة — مولّد بنفس خوارزمية التطبيق =====
+     مخزن مستقل تماماً؛ لا يمسّ بيانات أي تطبيق آخر في هذه اللوحة.
+     يدعم ثلاث خطط (شهري/سنوي/دائم) بتاريخ انتهاء مضمَّن داخل المفتاح نفسه. */
+  {
+    id: 'results',
+    name: 'نظام نتائج المدرسة',
+    icon: '📊',
+    desc: 'نظام إدارة نتائج المدرسة والدرجات — مفتاح مربوط برمز جهاز الزبون، بخطة شهرية أو سنوية أو دائمة',
+    badge: 'نشط',
+    keyType: 'results',
+    waNumber: '9647712080871',
+    storageKey: 'sr_results_activation_history'
+  }
+  ,
+  /* ===== تطبيق «الاستاذ» — سجل المعلم الشامل =====
+     مولّد بنفس خوارزمية التطبيق. مخزن مستقل تماماً؛
+     لا يمسّ بيانات أي تطبيق آخر في هذه اللوحة.
+     رمز الجهاز: 12 حرفاً XXXX-XXXX-XXXX — المفتاح: 16 حرفاً دائم
+     الفترة المجانية داخل التطبيق: 7 أيام */
+  {
+    id: 'ustadh',
+    name: 'الاستاذ',
+    icon: '🎓',
+    desc: 'سجل المعلم الشامل — الدرجات والشفوي والسلوك والحضور والتقارير — مفتاح دائم مربوط برمز جهاز الزبون (تجربة مجانية 7 أيام)',
+    badge: 'نشط',
+    keyType: 'ustadh',
+    waNumber: '9647712080871',
+    storageKey: 'ust_teacher_activation_history'
+  },
+  /* ===== الجدول الأسبوعي للمدارس المهنية (VTS) =====
+     مولّد مستقل عن «الجدول المدرسي» وكل التطبيقات الأخرى.
+     يقبل فقط رمز الجهاز VTS-XXXX-XXXX-XXXX ويصدر مفتاحاً دائماً VTS-XXXX-XXXX-XXXX-XXXX. */
+  {
+    id: 'vocational_timetable',
+    name: 'الجدول الأسبوعي للمدارس المهنية',
+    icon: '🏭',
+    desc: 'منظّم الجداول الأسبوعية للمدارس المهنية — رمز دائم خاص بالتطبيق والجهاز',
+    badge: 'نشط',
+    keyType: 'vts',
+    waNumber: '9647712080871',
+    storageKey: 'vts_professional_timetable_activation_history_v1'
+  }
+  // يمكن إضافة تطبيقات أخرى هنا:
+  // { id:'app2', name:'تطبيق آخر', icon:'📱', desc:'...', secret:'...', waNumber:'...', storageKey:'...' }
+];
+
+// ===== GLOBAL =====
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function hsmEncrypt(text,key){let r='';for(let i=0;i<text.length;i++)r+=String.fromCharCode(text.charCodeAt(i)^key.charCodeAt(i%key.length));return btoa(unescape(encodeURIComponent(r)))}
+function hsmDecrypt(enc,key){try{const t=decodeURIComponent(escape(atob(enc)));let r='';for(let i=0;i<t.length;i++)r+=String.fromCharCode(t.charCodeAt(i)^key.charCodeAt(i%key.length));return r}catch(e){return''}}
+
+/* ===== تطبيع رقم الهاتف: أرقام عربية→إنكليزية، وإصلاح صيغة العراق 07… → 9647… ===== */
+function obNormPhone(raw){
+  let d=String(raw==null?'':raw)
+    .replace(/[\u0660-\u0669]/g,function(c){return String(c.charCodeAt(0)-0x0660)})
+    .replace(/[\u06F0-\u06F9]/g,function(c){return String(c.charCodeAt(0)-0x06F0)})
+    .replace(/[^0-9+]/g,'').replace(/\+/g,'');
+  if(d.indexOf('00')===0)d=d.slice(2);
+  if(d.indexOf('964')===0)return d;
+  if(d.indexOf('07')===0&&d.length===11)return '964'+d.slice(1);   /* 0770… → 964770… */
+  if(d.indexOf('7')===0&&d.length===10)return '964'+d;             /* 770… → 964770… */
+  return d;
+}
+/* تحويل المبلغ: أرقام عربية وفواصل → رقم */
+function obNormAmount(v){
+  var d=String(v==null?'':v)
+    .replace(/[\u0660-\u0669]/g,function(c){return String(c.charCodeAt(0)-0x0660)})
+    .replace(/[\u06F0-\u06F9]/g,function(c){return String(c.charCodeAt(0)-0x06F0)})
+    .replace(/[^\d.]/g,'');
+  var n=parseFloat(d);return isNaN(n)?null:n;
+}
+
+
+/* ===================================================================
+   ✦ مولّد مفاتيح «الجدول المدرسي»
+   منقول حرفياً من التطبيق (نفس السر، نفس دوال التجزئة) حتى يكون
+   المفتاح المولّد هنا مقبولاً في التطبيق فوراً بلا أي تعديل عليه.
+   =================================================================== */
+const OB_SECRET = (function () {
+  const p = [[77,65,83,79,85,68,73], [83,67,72,69,68,85,76,69]];
+  const j = String.fromCharCode(45);
+  return String.fromCharCode.apply(null, p[0]) + j +
+         String.fromCharCode.apply(null, p[1]) + j +
+         [50,48,50,54].map(c => String.fromCharCode(c)).join('') + j +
+         String.fromCharCode(72, 78);
+})();
+const OB_ALPHA = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+function obHash32(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+function obHashWide(str, rounds) {
+  let out = '', seed = str;
+  for (let r = 0; r < (rounds || 4); r++) {
+    seed = str + '|' + r + '|' + obHash32(seed + r);
+    out += ('00000000' + obHash32(seed).toString(16)).slice(-8);
+  }
+  return out.toUpperCase();
+}
+/* تطبيع: أرقام عربية/فارسية تُحوَّل (لا تُحذف) ومحارف الاتجاه تُنظَّف */
+function obNormKeyStr(str) {
+  return String(str == null ? '' : str)
+    .replace(/[\u0660-\u0669]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+    .replace(/[\u06F0-\u06F9]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); })
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, '');
+}
+/* مفتاح 16 حرفاً XXXX-XXXX-XXXX-XXXX لرمز جهاز 12 حرفاً */
+function obKeyFor(devCode) {
+  const clean = obNormKeyStr(devCode);
+  const h = obHashWide(OB_SECRET + '#' + clean + '#' + OB_SECRET, 5);
+  let out = '';
+  for (let i = 0; i < 16; i++) {
+    out += OB_ALPHA[parseInt(h.substr(i * 2, 2), 16) % OB_ALPHA.length];
+  }
+  return out.replace(/(.{4})/g, '$1-').replace(/-$/, '');
+}
+
+
+/* ===================================================================
+   ✦ مولّد مفاتيح «الجدول الأسبوعي للمدارس المهنية» (VTS)
+   خوارزمية ووسم ومخزن مستقلون تماماً عن الجدول المدرسي (OB) وبقية
+   التطبيقات. لا يصدر إلا VTS-XXXX-XXXX-XXXX-XXXX لرمز جهاز VTS خاص.
+   =================================================================== */
+const VTS_LICENSE_APP_ID='vts-professional-timetable';
+const VTS_LICENSE_SECRET='VTS-PROFESSIONAL-TIMETABLE-HN-2026-9B7';
+const VTS_CODE_PREFIX='VTS';
+const VTS_ALPHA='23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+function vtsAscii(value){
+  return String(value==null?'':value)
+    .replace(/[٠-٩]/g,function(d){return String(d.charCodeAt(0)-0x0660)})
+    .replace(/[۰-۹]/g,function(d){return String(d.charCodeAt(0)-0x06F0)})
+    .replace(/[‎‏‪-‮⁦-⁩﻿]/g,'');
+}
+function vtsNormalizeDeviceCode(value){
+  const shown=vtsAscii(value).trim().toUpperCase();
+  const compact=shown.replace(/[^A-Z0-9]/g,'');
+  return /^VTS(?:[\s_-]|$)/.test(shown)?compact.slice(VTS_CODE_PREFIX.length):compact;
+}
+function vtsDeviceIsValid(clean){
+  return clean.length===12 && clean.split('').every(function(char){return VTS_ALPHA.indexOf(char)>=0});
+}
+function vtsFormatDeviceCode(value){
+  const clean=vtsNormalizeDeviceCode(value);
+  return VTS_CODE_PREFIX+'-'+clean.slice(0,4)+'-'+clean.slice(4,8)+'-'+clean.slice(8,12);
+}
+function vtsHash32(text){
+  let hash=0x811c9dc5;
+  for(let i=0;i<text.length;i++){
+    hash^=text.charCodeAt(i);
+    hash=Math.imul(hash,0x01000193)>>>0;
+    hash^=hash>>>13;
+  }
+  return hash>>>0;
+}
+function vtsHashWide(text,rounds){
+  let result='',seed=String(text);
+  for(let round=0;round<(rounds||7);round++){
+    seed=VTS_LICENSE_SECRET+'|'+round+'|'+seed+'|'+vtsHash32(seed+'|'+round);
+    result+=('00000000'+vtsHash32(seed).toString(16)).slice(-8);
+  }
+  return result.toUpperCase();
+}
+function vtsActivationKeyFor(deviceCode){
+  const clean=vtsNormalizeDeviceCode(deviceCode);
+  if(!vtsDeviceIsValid(clean))return '';
+  const digest=vtsHashWide(VTS_LICENSE_APP_ID+'|'+clean+'|'+VTS_LICENSE_SECRET,7);
+  let payload='';
+  for(let index=0;index<16;index++)payload+=VTS_ALPHA[parseInt(digest.substr(index*2,2),16)%VTS_ALPHA.length];
+  return VTS_CODE_PREFIX+'-'+payload.replace(/(.{4})/g,'$1-').replace(/-$/,'');
+}
+
+
+/* ===================================================================
+   ✦ مولّد مفاتيح «نظام المخاطبات الرسمية» (MKH)
+   منقول حرفياً من كود التطبيق (نفس السر ونفس دوال التجزئة) حتى يكون
+   المفتاح المولّد هنا مقبولاً في التطبيق فوراً بلا أي تعديل عليه.
+   رمز الجهاز: 6 أحرف (بلا 0/1/I/O) — المفتاح: MKH-XXXX-XXXX دائم
+   =================================================================== */
+const MKH_SECRET = 'MKH#2026~Act';
+const MKH_ALPHA  = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function mkhHash(str) {
+  let h1 = 0x811c9dc5, h2 = 0x9e3779b1;
+  const t = (MKH_SECRET + '|' + str).toUpperCase();
+  for (let i = 0; i < t.length; i++) {
+    h1 ^= t.charCodeAt(i);            h1 = Math.imul(h1, 0x01000193) >>> 0;
+    h2 ^= t.charCodeAt(t.length - 1 - i); h2 = Math.imul(h2, 0x01000193) >>> 0;
+  }
+  let out = '', a = h1 >>> 0, b = h2 >>> 0;
+  for (let i = 0; i < 10; i++) {
+    const v = (a + ((b * 7) >>> 0) + i * 31) % MKH_ALPHA.length;
+    out += MKH_ALPHA[v];
+    a = ((a >>> 3) ^ (b << 2)) >>> 0;
+    b = (b + v * 13 + t.length) >>> 0;
+  }
+  return out;
+}
+function mkhKeyFor(devCodeClean) {
+  const h = mkhHash(devCodeClean);
+  return 'MKH-' + h.slice(0, 4) + '-' + h.slice(4, 8);
+}
+/* تطبيع رمز الجهاز: أرقام عربية/فارسية تُحوَّل، ويُقبل الشكل XXX-XXX */
+function mkhNormDev(raw) {
+  return String(raw == null ? '' : raw)
+    .replace(/[\u0660-\u0669]/g, function (c) { return String(c.charCodeAt(0) - 0x0660); })
+    .replace(/[\u06F0-\u06F9]/g, function (c) { return String(c.charCodeAt(0) - 0x06F0); })
+    .toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+function mkhFmtDev(c) { return c.slice(0, 3) + '-' + c.slice(3); }
+
+
+/* ===================================================================
+   ✦ مولّد مفاتيح «نظام نتائج المدرسة»
+   منقول حرفياً من كود التطبيق (نفس السر ونفس دوال التجزئة) حتى يكون
+   المفتاح المولّد هنا مقبولاً في التطبيق فوراً بلا أي تعديل عليه.
+   الفرق عن البقيّة: المفتاح يحمل حرف خطة (M شهري / Y سنوي / L دائم)
+   وتاريخ انتهاء مُشفَّراً بداخله، فتُبنى صلاحية شهر/سنة كتاريخ ثابت.
+   =================================================================== */
+const SR_SECRET = 'NIBRAS-RESULTS-HN-2026';
+const SR_ALPHA  = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+const SR_REF_EPOCH = Date.UTC(2025,0,1);
+const SR_DAY_MS = 24*60*60*1000;
+function srHash32(str){
+  let h=0x811c9dc5;
+  for(let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))) >>> 0;
+  }
+  return h>>>0;
+}
+function srHashWide(str, rounds){
+  let out='', seed=str;
+  for(let r=0;r<(rounds||4);r++){
+    seed = str+'|'+r+'|'+srHash32(seed+r);
+    out += ('00000000'+srHash32(seed).toString(16)).slice(-8);
+  }
+  return out.toUpperCase();
+}
+function srNormKeyStr(str){
+  return String(str==null?'':str)
+    .replace(/[\u0660-\u0669]/g,function(d){return String(d.charCodeAt(0)-0x0660);})
+    .replace(/[\u06F0-\u06F9]/g,function(d){return String(d.charCodeAt(0)-0x06F0);})
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g,'')
+    .toUpperCase().replace(/[^0-9A-Z]/g,'');
+}
+function srEncDays(n){
+  n = Math.max(0, Math.min(31*31*31-1, Math.round(n)));
+  let s='';
+  for(let i=0;i<3;i++){ s = SR_ALPHA[n % 31] + s; n = Math.floor(n/31); }
+  return s;
+}
+function srKeyFor(devCode, plan, dayCode){
+  const clean=String(devCode||'').toUpperCase().replace(/[^0-9A-Z]/g,'');
+  const p=String(plan||'L').toUpperCase();
+  const d=String(dayCode||'AAA').toUpperCase();
+  const h=srHashWide(SR_SECRET+'#'+clean+'#'+p+'#'+d+'#'+SR_SECRET,5);
+  let out='';
+  for(let i=0;i<12;i++) out += SR_ALPHA[parseInt(h.substr(i*2,2),16) % SR_ALPHA.length];
+  return out;
+}
+function srBuildKey(devCode, plan, expiryTs){
+  const p=String(plan||'L').toUpperCase();
+  const dayCode = p==='L' ? 'AAA' : srEncDays(Math.round((expiryTs-SR_REF_EPOCH)/SR_DAY_MS));
+  const sig = srKeyFor(devCode, p, dayCode);
+  return (p+dayCode+sig).replace(/(.{4})/g,'$1-').replace(/-$/,'');
+}
+
+
+/* ===================================================================
+   ✦ مولّد مفاتيح تطبيق «الاستاذ»
+   منقول حرفياً من كود التطبيق (نفس السر ونفس دوال التجزئة) حتى يكون
+   المفتاح المولّد هنا مقبولاً في التطبيق فوراً بلا أي تعديل عليه.
+   رمز الجهاز: 12 حرفاً (بلا 0/1/O/I/L) — المفتاح: XXXX-XXXX-XXXX-XXXX دائم
+   =================================================================== */
+const UST_SECRET = 'USTADH-TEACHER-HN-2026';
+const UST_ALPHA  = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+function ustHash32(str){
+  let h = 0x811c9dc5;
+  for(let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))) >>> 0;
+  }
+  return h>>>0;
+}
+function ustHashWide(str, rounds){
+  let out='', seed=str;
+  for(let r=0;r<(rounds||5);r++){
+    seed = str+'|'+r+'|'+ustHash32(seed+r);
+    out += ('00000000'+ustHash32(seed).toString(16)).slice(-8);
+  }
+  return out.toUpperCase();
+}
+function ustNormKeyStr(str){
+  return String(str==null?'':str)
+    .replace(/[\u0660-\u0669]/g,function(d){return String(d.charCodeAt(0)-0x0660);})
+    .replace(/[\u06F0-\u06F9]/g,function(d){return String(d.charCodeAt(0)-0x06F0);})
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g,'')
+    .toUpperCase().replace(/[^0-9A-Z]/g,'');
+}
+function ustKeyFor(devCode){
+  const clean = ustNormKeyStr(devCode);
+  const h = ustHashWide(UST_SECRET+'#'+clean+'#'+UST_SECRET, 6);
+  let out='';
+  for(let i=0;i<16;i++){
+    out += UST_ALPHA[parseInt(h.substr(i*2,2),16) % UST_ALPHA.length];
+  }
+  return out.replace(/(.{4})/g,'$1-').replace(/-$/,'');
+}
+
+
+// ===== MAIN MENU =====
+function renderMainMenu(){
+  const grid=document.getElementById('appsGrid');
+  grid.innerHTML=APPS.map(app=>{
+    const h=getHistory(app);
+    return '<div class="app-card" onclick="openAppPanel(\''+app.id+'\')">' +
+      '<div class="icon">'+app.icon+'</div>' +
+      '<h3>'+app.name+'</h3>' +
+      '<p>'+app.desc+'</p>' +
+      '<span class="badge">'+app.badge+' — '+h.length+' كود</span>' +
+    '</div>';
+  }).join('');
+}
+
+function showMainMenu(){
+  document.getElementById('mainMenu').style.display='block';
+  document.getElementById('appPanel').classList.remove('active');
+  document.getElementById('accountsPanel').classList.remove('active');
+  renderMainMenu();
+  renderAcctsBadge();
+}
+
+/* ===== قسم الحسابات: سجل المبيعات والمبالغ ===== */
+const ACCTS_KEY='msd_accounts_history';
+function getAccts(){try{return JSON.parse(localStorage.getItem(ACCTS_KEY)||'[]')}catch(e){return[]}}
+function saveAccts(a){localStorage.setItem(ACCTS_KEY,JSON.stringify(a))}
+function renderAcctsBadge(){
+  const b=document.getElementById('acctsBadge');
+  if(b){const n=getAccts().length;b.textContent=n+' عملية — '+fmtIQD(acctsTotal(getAccts()))}
+}
+function acctsTotal(a){return a.reduce(function(s,x){return s+(parseFloat(x.amount)||0)},0)}
+function fmtIQD(n){return (Math.round(n*1000)/1000).toLocaleString('ar-IQ')+' د.ع'}
+
+function openAccounts(){
+  document.getElementById('mainMenu').style.display='none';
+  document.getElementById('appPanel').classList.remove('active');
+  const p=document.getElementById('accountsPanel');
+  p.classList.add('active');
+  renderAccounts();
+}
+
+function renderAccounts(){
+  const a=getAccts();
+  const today=new Date().toDateString();
+  const todayCount=a.filter(x=>new Date(x.date).toDateString()===today).length;
+  const total=acctsTotal(a);
+  document.getElementById('accountsContent').innerHTML=
+    '<div class="panel-header"><div class="icon">💰</div><h2 style="background:linear-gradient(135deg,#11998e,#38ef7d);-webkit-background-clip:text;-webkit-text-fill-color:transparent">الحسابات — سجل المبيعات</h2><p>اسم الزبون والمبلغ والتاريخ (يُسجَّل تلقائياً)</p></div>' +
+
+    '<div class="stats">' +
+      '<div class="stat-card"><strong style="color:#38ef7d">'+fmtIQD(total)+'</strong><span>إجمالي المبيعات</span></div>' +
+      '<div class="stat-card"><strong>'+a.length+'</strong><span>إجمالي العمليات</span></div>' +
+      '<div class="stat-card"><strong>'+todayCount+'</strong><span>عمليات اليوم</span></div>' +
+    '</div>' +
+
+    '<div class="card"><h3><span>➕</span> إضافة عملية بيع</h3>' +
+      '<div class="form-group"><label>اسم الزبون *</label><input type="text" id="acName" placeholder="اسم المدرسة أو الزبون..."></div>' +
+      '<div class="form-group"><label>المبلغ (دينار) *</label><input type="tel" id="acAmount" placeholder="مثال: 25000" dir="ltr" style="text-align:left"></div>' +
+      '<div class="form-group"><label>التطبيق</label><select id="acApp"><option>الجدول المدرسي</option><option>المنظومة المدرسية</option><option>نظام المخاطبات الرسمية</option><option>الاستاذ</option><option>أخرى</option></select></div>' +
+      '<div class="btn-group"><button class="btn btn-success" onclick="acctsAdd()">➕ إضافة للحساب</button></div>' +
+    '</div>' +
+
+    '<div class="card"><h3><span>📒</span> السجل (' + a.length + ')</h3>' +
+      '<div class="table-wrap"><table class="acct-table"><thead><tr><th>اسم الزبون</th><th>التطبيق</th><th>المبلغ</th><th>التاريخ (تلقائي)</th><th></th></tr></thead><tbody id="acctsBody"></tbody></table></div>' +
+      '<div class="btn-group" style="margin-top:12px">' +
+        '<button class="btn btn-copy btn-sm" onclick="acctsCsv()">📄 تصدير CSV</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="acctsClear()">🗑️ مسح الكل</button>' +
+      '</div>' +
+    '</div>';
+  renderAcctsTable();
+}
+
+function renderAcctsTable(){
+  const el=document.getElementById('acctsBody');if(!el)return;
+  const a=getAccts();
+  if(!a.length){el.innerHTML='<tr><td colspan="5" class="empty-state">لا توجد عمليات بعد — أضف أول عملية أعلاه</td></tr>';return}
+  el.innerHTML=a.slice().reverse().map(function(item,i){
+    const idx=a.length-1-i;
+    return '<tr'+(item.deleted?' style="opacity:.5"':'')+'>' +
+      '<td>'+escapeHtml(item.name||'—')+'</td>' +
+      '<td style="color:#f5af19;font-size:11px">'+escapeHtml(item.app||'—')+'</td>' +
+      '<td style="color:#38ef7d;font-weight:800">'+fmtIQD(item.amount)+'</td>' +
+      '<td style="color:#999;font-size:11px">'+new Date(item.date).toLocaleString('ar-IQ')+'</td>' +
+      '<td><button class="btn btn-danger btn-sm" onclick="acctsDel('+idx+')">🗑️</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function acctsAdd(){
+  const name=(document.getElementById('acName')||{}).value||'';
+  const amount=obNormAmount((document.getElementById('acAmount')||{}).value);
+  const app=(document.getElementById('acApp')||{}).value||'—';
+  if(!name.trim()){showToast('⚠️ اكتب اسم الزبون');return}
+  if(amount==null||amount<=0){showToast('⚠️ اكتب المبلغ بشكل صحيح (أرقام فقط)');return}
+  const a=getAccts();
+  a.push({name:name.trim(),amount:amount,app:app,date:new Date().toISOString()});
+  saveAccts(a);
+  renderAccounts();renderAcctsBadge();
+  showToast('✅ سُجّلت العملية — '+fmtIQD(amount));
+}
+
+function acctsDel(idx){
+  if(!confirm('حذف هذه العملية من الحساب؟'))return;
+  const a=getAccts();if(a[idx]){a.splice(idx,1);saveAccts(a);renderAccounts();renderAcctsBadge();showToast('تم الحذف')}
+}
+
+function acctsClear(){
+  if(!confirm('مسح كل سجل الحسابات نهائياً؟'))return;
+  saveAccts([]);renderAccounts();renderAcctsBadge();showToast('✅ تم المسح');
+}
+
+function acctsCsv(){
+  const a=getAccts();
+  if(!a.length){showToast('⚠️ لا توجد عمليات');return}
+  let csv='\uFEFFاسم الزبون,التطبيق,المبلغ,التاريخ\n';
+  a.forEach(function(x){csv+='"'+String(x.name||'').replace(/"/g,'""')+'","'+String(x.app||'')+'",'+(x.amount||0)+',"'+new Date(x.date).toLocaleString('ar-IQ')+'"\n'});
+  csv+='\nالإجمالي,,,'+acctsTotal(a);
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;link.download='الحسابات-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},4000);
+  showToast('📄 تم تصدير '+a.length+' عملية');
+}
+
+
+// ===== APP PANEL =====
+let currentApp = null;
+
+function openAppPanel(appId){
+  currentApp = APPS.find(a=>a.id===appId);
+  if(!currentApp) return;
+  document.getElementById('mainMenu').style.display='none';
+  document.getElementById('accountsPanel').classList.remove('active');
+  document.getElementById('appPanel').classList.add('active');
+  renderAppPanel();
+}
+
+function getHistory(app){
+  try{return JSON.parse(localStorage.getItem(app.storageKey)||'[]')}catch(e){return[]}
+}
+function saveHistory(app,h){
+  localStorage.setItem(app.storageKey,JSON.stringify(h));
+}
+
+function renderAppPanel(){
+  const app=currentApp;
+  const h=getHistory(app);
+  const today=new Date().toDateString();
+  const todayCount=h.filter(x=>new Date(x.date).toDateString()===today).length;
+  const activeCount=h.filter(x=>!x.revoked).length;
+
+  document.getElementById('appPanelContent').innerHTML=
+    '<div class="panel-header"><div class="icon">'+app.icon+'</div><h2>'+app.name+'</h2><p>إدارة أكواد التفعيل</p></div>' +
+
+    '<div class="stats">' +
+      '<div class="stat-card"><strong>'+h.length+'</strong><span>أكواد مُصدرة</span></div>' +
+      '<div class="stat-card"><strong>'+todayCount+'</strong><span>أكواد اليوم</span></div>' +
+      '<div class="stat-card"><strong>'+activeCount+'</strong><span>أجهزة مفعّلة</span></div>' +
+    '</div>' +
+
+    (app.id==='school' ? (
+    '<div class="card"><h3><span>🔗</span> رابط خاص للمدرسة</h3>' +
+      '<p style="color:#aaa;font-size:12px;margin:-6px 0 14px;line-height:1.6">أنشئ رابطاً مستقلاً للزبون. مديره ومعلموه وطلابه يدخلون منه فقط وبياناتهم لا تختلط مع أي مدرسة أخرى.</p>' +
+      '<div class="form-group"><label>اسم المدرسة *</label><input type="text" id="schName" placeholder="مثال: مدرسة النور الابتدائية"></div>' +
+      '<div class="form-group"><label>رمز الرابط بالإنجليزي * (حروف وأرقام فقط)</label><input type="text" id="schCode" placeholder="alnour أو basra2" dir="ltr" style="text-align:left"></div>' +
+      '<div class="form-group"><label>رابط المنظومة الأساسي</label><input type="url" id="schBase" value="https://hussainnahi1989-ctrl.github.io/-/" dir="ltr" style="text-align:left"></div>' +
+      '<div class="form-group"><label>📱 رقم الزبون (اختياري لإرسال الرابط)</label><input type="tel" id="schPhone" placeholder="0770…" dir="ltr" style="text-align:left"></div>' +
+      '<div class="btn-group"><button class="btn btn-success" onclick="makeSchoolLink()">🔗 إنشاء رابط المدرسة</button><button class="btn btn-copy" onclick="copySchoolLink()">📋 نسخ الرابط</button></div>' +
+      '<div class="result-box" id="schoolLinkBox">— الرابط سيظهر هنا —</div>' +
+      '<div class="btn-group" id="schWaGroup" style="display:none;margin-top:8px"><button class="btn btn-whatsapp" onclick="sendSchoolLinkWA()">📱 إرسال الرابط واتساب</button></div>' +
+      '<div id="schoolLinkHist" style="margin-top:14px"></div>' +
+    '</div>'
+    ) : '') +
+
+    '<div class="card"><h3><span>🔑</span> توليد رمز تفعيل</h3>' +
+      '<div class="form-group"><label>اسم الزبون (اختياري)</label><input type="text" id="clientName" placeholder="اسم المدرسة أو الزبون..."></div>' +
+      '<div class="form-group"><label>📱 رقم الزبون للواتساب — ليصل الرمز إليه مباشرة</label><input type="tel" id="clientPhone" placeholder="مثال: 07701234567 (أو بصيغة دولية)" dir="ltr" style="text-align:left"></div>' +
+      (app.keyType==='vts'
+        ? '<div class="form-group"><label>نوع التفعيل</label><input type="text" value="🔑 مفتاح VTS دائم — مربوط بهذا التطبيق والجهاز فقط" disabled style="color:#38ef7d;opacity:1"></div>' +
+          '<div class="form-group"><label>رمز الجهاز كما يظهر في التطبيق (VTS-XXXX-XXXX-XXXX)</label><input type="text" id="deviceCode" placeholder="مثال: VTS-AB2C-3DE4-FG5H" dir="ltr"></div>'
+        : app.keyType==='schedule'
+        ? '<div class="form-group"><label>نوع التفعيل</label><input type="text" value="🔑 مفتاح دائم — مربوط بجهاز الزبون ولا تنتهي صلاحيته" disabled style="color:#38ef7d;opacity:1"></div>' +
+          '<div class="form-group"><label>رمز الجهاز (صيغته XXXX-XXXX-XXXX — 12 حرفاً بلا 0/1/O/I/L)</label><input type="text" id="deviceCode" placeholder="مثال: AB2C-3DE4-FG5H" dir="ltr"></div>'
+        : app.keyType==='mkh'
+        ? '<div class="form-group"><label>نوع التفعيل</label><input type="text" value="🔑 مفتاح دائم — مربوط بجهاز الزبون ولا تنتهي صلاحيته" disabled style="color:#38ef7d;opacity:1"></div>' +
+          '<div class="form-group"><label>رمز الجهاز (صيغته XXX-XXX — 6 أحرف بلا 0/1/I/O كما يظهر في شاشة التفعيل)</label><input type="text" id="deviceCode" placeholder="مثال: PEW-MV9" dir="ltr"></div>'
+        : app.keyType==='ustadh'
+        ? '<div class="form-group"><label>نوع التفعيل</label><input type="text" value="🔑 مفتاح دائم — مربوط بجهاز الزبون ولا تنتهي صلاحيته (تجربة مجانية 7 أيام)" disabled style="color:#38ef7d;opacity:1"></div>' +
+          '<div class="form-group"><label>رمز الجهاز (صيغته XXXX-XXXX-XXXX — 12 حرفاً بلا 0/1/O/I/L كما يظهر في شاشة التفعيل)</label><input type="text" id="deviceCode" placeholder="مثال: AB2C-3DE4-FG5H" dir="ltr"></div>'
+        : app.keyType==='results'
+        ? '<div class="form-group"><label>نوع الاشتراك</label><select id="resultsPlan"><option value="30">شهري (30 يوم)</option><option value="365" selected>سنوي (365 يوم)</option><option value="9999">دائم</option></select></div>' +
+          '<div class="form-group"><label>رمز الجهاز (صيغته XXXX-XXXX-XXXX — 12 حرفاً بلا 0/1/O/I/L كما يظهر في شاشة التفعيل)</label><input type="text" id="deviceCode" placeholder="مثال: AB2C-3DE4-FG5H" dir="ltr"></div>'
+        : '<div class="form-group"><label>مدة التفعيل</label><select id="duration"><option value="30">30 يوم</option><option value="90">90 يوم</option><option value="180">180 يوم</option><option value="365" selected>سنة كاملة</option><option value="9999">دائم</option></select></div>' +
+          '<div class="form-group"><label>رمز الجهاز (الذي أرسله الزبون)</label><input type="text" id="deviceCode" placeholder="الصق رمز الجهاز هنا..." dir="ltr"></div>'
+      ) +
+      '<div class="btn-group"><button class="btn btn-primary" onclick="generateCode()">🔑 توليد رمز التفعيل</button><button class="btn btn-copy" onclick="copyCode()">📋 نسخ الرمز</button></div>' +
+      '<div class="result-box" id="generatedCode">— الرمز سيظهر هنا —</div>' +
+      '<div class="btn-group" id="waBtnGroup" style="display:none">' +
+        '<button class="btn btn-whatsapp" onclick="sendWaPick()">📤 واتساب — اختر جهة الاتصال بنفسك</button>' +
+        '<button class="btn btn-copy" onclick="sendViaWhatsApp()">📱 إرسال مباشر لرقم الزبون</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="card"><h3><span>📋</span> سجل الأكواد</h3><div id="historyList"></div>' +
+      '<div class="btn-group" style="margin-top:10px"><button class="btn btn-copy btn-sm" onclick="clearHistory()">🗑️ مسح السجل</button></div>' +
+    '</div>' +
+
+    '<div class="card"><h3><span>🚫</span> إلغاء تفعيل</h3>' +
+      '<div class="form-group"><label>رمز التفعيل المراد إلغاؤه</label><input type="text" id="revokeCode" placeholder="الصق رمز التفعيل..." dir="ltr"></div>' +
+      '<button class="btn btn-danger" onclick="revokeCode()">🚫 إلغاء التفعيل</button>' +
+      '<div class="revoke-result" id="revokeResult"></div>' +
+    '</div>';
+
+  renderHistoryList();
+  if(app.id==='school') renderSchoolLinkHist();
+}
+
+function renderHistoryList(){
+  const app=currentApp;
+  const h=getHistory(app);
+  const el=document.getElementById('historyList');
+  if(!el)return;
+  if(!h.length){el.innerHTML='<div class="empty-state">لا توجد أكواد مُصدرة بعد</div>';return}
+  el.innerHTML=h.slice().reverse().map((item,i)=>{
+    const idx=h.length-1-i;
+    return '<div class="history-item"'+(item.revoked?' style="opacity:.5"':'')+'>' +
+      '<div class="info"><div class="name">'+escapeHtml(item.client||'بدون اسم')+'</div><div class="code" title="'+item.code+'">'+item.code.substring(0,30)+'</div><div class="date">'+new Date(item.date).toLocaleString('ar-IQ')+' — '+(item.duration===9999?'دائم':item.duration+' يوم')+(item.revoked?' — ملغي':'')+'</div></div>' +
+      '<div class="actions">' +
+        '<button class="btn btn-copy btn-sm" onclick="copyText(\''+item.code+'\')">📋</button>' +
+        '<button class="btn btn-whatsapp btn-sm" title="إرسال لرقم الزبون" onclick="sendCodeWA('+idx+')">📱</button>' +
+        (!item.revoked?'<button class="btn btn-danger btn-sm" onclick="revokeFromHistory('+idx+')">🚫</button>':'') +
+      '</div></div>';
+  }).join('');
+}
+
+function generateCode(){
+  const app=currentApp;
+  const deviceCode=document.getElementById('deviceCode').value.trim();
+  if(!deviceCode){showToast('⚠️ أدخل رمز الجهاز');return}
+  const client=document.getElementById('clientName').value.trim();
+  const durationEl=document.getElementById('duration');
+  const duration=durationEl?parseInt(durationEl.value):9999;
+
+  /* ===== الجدول الأسبوعي للمدارس المهنية: مفتاح VTS مستقل ودائم ===== */
+  if(app.keyType==='vts'){
+    const clean=vtsNormalizeDeviceCode(deviceCode);
+    if(clean.length!==12){showToast('⚠️ رمز جهاز VTS يجب أن يكون 12 حرفاً — الآن '+clean.length);return}
+    if(!vtsDeviceIsValid(clean)){showToast('⚠️ رمز جهاز VTS غير صالح — استخدم الرمز كما ظهر في التطبيق');return}
+    const code=vtsActivationKeyFor(clean);
+    document.getElementById('generatedCode').textContent=code;
+    document.getElementById('waBtnGroup').style.display='flex';
+    const h=getHistory(app);
+    h.push({code,device:vtsFormatDeviceCode(clean),client,duration:9999,date:new Date().toISOString(),revoked:false,phone:obNormPhone((document.getElementById('clientPhone')||{}).value)});
+    saveHistory(app,h);
+    renderHistoryList();
+    showToast('✅ مفتاح VTS للجدول الأسبوعي للمدارس المهنية جاهز');
+    return;
+  }
+
+  /* ===== الجدول المدرسي: نفس خوارزمية التطبيق — مفتاح دائم مربوط بالجهاز ===== */
+  if(app.keyType==='schedule'){
+    const clean=obNormKeyStr(deviceCode);
+    if(clean.length!==12){showToast('⚠️ رمز الجهاز يجب أن يكون 12 حرفاً — الآن '+clean.length);return}
+    let bad='';
+    for(let i=0;i<clean.length;i++){if(OB_ALPHA.indexOf(clean.charAt(i))<0&&bad.indexOf(clean.charAt(i))<0)bad+=clean.charAt(i)}
+    if(bad){showToast('⚠️ حروف غير صالحة في الرمز: '+bad+' — رمز الجهاز لا يحتوي 0 أو 1 أو O أو I أو L');return}
+    const code=obKeyFor(clean);
+    document.getElementById('generatedCode').textContent=code;
+    document.getElementById('waBtnGroup').style.display='flex';
+    const h=getHistory(app);
+    h.push({code,device:clean.replace(/(.{4})/g,'$1-').replace(/-$/,''),client,duration:9999,date:new Date().toISOString(),revoked:false,phone:obNormPhone((document.getElementById('clientPhone')||{}).value)});
+    saveHistory(app,h);
+    renderHistoryList();
+    showToast('✅ مفتاح «الجدول المدرسي» جاهز');
+    return;
+  }
+
+  /* ===== نظام المخاطبات الرسمية: نفس خوارزمية التطبيق — MKH-XXXX-XXXX دائم ===== */
+  if(app.keyType==='mkh'){
+    const clean=mkhNormDev(deviceCode);
+    if(clean.length!==6){showToast('⚠️ رمز الجهاز يجب أن يكون 6 أحرف — الآن '+clean.length);return}
+    let bad='';
+    for(let i=0;i<clean.length;i++){if(MKH_ALPHA.indexOf(clean.charAt(i))<0&&bad.indexOf(clean.charAt(i))<0)bad+=clean.charAt(i)}
+    if(bad){showToast('⚠️ حروف غير صالحة في الرمز: '+bad+' — رمز الجهاز لا يحتوي 0 أو 1 أو I أو O');return}
+    const code=mkhKeyFor(clean);
+    document.getElementById('generatedCode').textContent=code;
+    document.getElementById('waBtnGroup').style.display='flex';
+    const h=getHistory(app);
+    h.push({code,device:mkhFmtDev(clean),client,duration:9999,date:new Date().toISOString(),revoked:false,phone:obNormPhone((document.getElementById('clientPhone')||{}).value)});
+    saveHistory(app,h);
+    renderHistoryList();
+    showToast('✅ مفتاح «نظام المخاطبات الرسمية» جاهز');
+    return;
+  }
+
+  /* ===== تطبيق «الاستاذ»: نفس خوارزمية التطبيق — مفتاح دائم مربوط بالجهاز ===== */
+  if(app.keyType==='ustadh'){
+    const clean=ustNormKeyStr(deviceCode);
+    if(clean.length!==12){showToast('⚠️ رمز الجهاز يجب أن يكون 12 حرفاً — الآن '+clean.length);return}
+    let bad='';
+    for(let i=0;i<clean.length;i++){if(UST_ALPHA.indexOf(clean.charAt(i))<0&&bad.indexOf(clean.charAt(i))<0)bad+=clean.charAt(i)}
+    if(bad){showToast('⚠️ حروف غير صالحة في الرمز: '+bad+' — رمز الجهاز لا يحتوي 0 أو 1 أو O أو I أو L');return}
+    const code=ustKeyFor(clean);
+    document.getElementById('generatedCode').textContent=code;
+    document.getElementById('waBtnGroup').style.display='flex';
+    const h=getHistory(app);
+    h.push({code,device:clean.replace(/(.{4})/g,'$1-').replace(/-$/,''),client,duration:9999,date:new Date().toISOString(),revoked:false,phone:obNormPhone((document.getElementById('clientPhone')||{}).value)});
+    saveHistory(app,h);
+    renderHistoryList();
+    showToast('✅ مفتاح «الاستاذ» جاهز');
+    return;
+  }
+
+  /* ===== نظام نتائج المدرسة: نفس خوارزمية التطبيق — مفتاح بخطة شهري/سنوي/دائم ===== */
+  if(app.keyType==='results'){
+    const clean=srNormKeyStr(deviceCode);
+    if(clean.length!==12){showToast('⚠️ رمز الجهاز يجب أن يكون 12 حرفاً — الآن '+clean.length);return}
+    let bad='';
+    for(let i=0;i<clean.length;i++){if(SR_ALPHA.indexOf(clean.charAt(i))<0&&bad.indexOf(clean.charAt(i))<0)bad+=clean.charAt(i)}
+    if(bad){showToast('⚠️ حروف غير صالحة في الرمز: '+bad+' — رمز الجهاز لا يحتوي 0 أو 1 أو O أو I أو L');return}
+    const planEl=document.getElementById('resultsPlan');
+    const durVal=planEl?parseInt(planEl.value):9999;
+    const plan = durVal===30?'M':(durVal===365?'Y':'L');
+    const expiry = plan==='L'?null:(Date.now()+durVal*SR_DAY_MS);
+    const code=srBuildKey(clean,plan,expiry);
+    document.getElementById('generatedCode').textContent=code;
+    document.getElementById('waBtnGroup').style.display='flex';
+    const h=getHistory(app);
+    h.push({code,device:clean.replace(/(.{4})/g,'$1-').replace(/-$/,''),client,duration:durVal,date:new Date().toISOString(),revoked:false,phone:obNormPhone((document.getElementById('clientPhone')||{}).value)});
+    saveHistory(app,h);
+    renderHistoryList();
+    showToast('✅ مفتاح «نظام نتائج المدرسة» جاهز');
+    return;
+  }
+
+  const payload=JSON.stringify({d:deviceCode,exp:duration===9999?9999:Date.now()+(duration*86400000),dur:duration,ts:Date.now()});
+  const code=hsmEncrypt(payload,app.secret);
+  document.getElementById('generatedCode').textContent=code;
+  document.getElementById('waBtnGroup').style.display='flex';
+  const h=getHistory(app);
+  h.push({code,device:deviceCode,client,duration,date:new Date().toISOString(),revoked:false,phone:obNormPhone((document.getElementById('clientPhone')||{}).value)});
+  saveHistory(app,h);
+  renderHistoryList();
+  showToast('✅ تم توليد رمز التفعيل');
+}
+
+function copyCode(){
+  const code=document.getElementById('generatedCode').textContent;
+  if(!code||code.startsWith('—')){showToast('⚠️ لا يوجد رمز');return}
+  copyText(code);
+}
+
+function copyText(text){navigator.clipboard.writeText(text).then(()=>showToast('✅ تم النسخ'))}
+
+/* ✦ فتح واتساب مع «قائمة اختيار جهة الاتصال» — بلا رقم مسبق:
+   على الجوال: بروتوكول whatsapp:// يفتح التطبيق مباشرة وتختار أي محادثة
+   على الحاسوب: رابط api.whatsapp.com/send (واتساب ويب/سطح المكتب)
+   وإن تعذّر كلاهما: ننسخ الرسالة لتلصقها في أي محادثة */
+function obWaPick(msg){
+  var enc=encodeURIComponent(msg);
+  var ua=String(navigator.userAgent||'');
+  var isMobile=/Android|iPhone|iPad|iPod/i.test(ua);
+  var opened=false;
+  var fallback=setTimeout(function(){
+    if(opened||document.hidden)return;
+    try{window.open('https://api.whatsapp.com/send/?text='+enc,'_blank');opened=true;return}catch(e){}
+    try{navigator.clipboard.writeText(msg);}catch(e2){}
+    showToast('📋 نُسخت الرسالة — الصقها في واتساب لأي جهة اتصال');
+  },1400);
+  try{
+    if(isMobile){
+      var onVis=function(){if(document.hidden){opened=true;clearTimeout(fallback);}};
+      document.addEventListener('visibilitychange',onVis);
+      window.location.href='whatsapp://send?text='+enc;
+    }else{
+      clearTimeout(fallback);
+      var w=window.open('https://api.whatsapp.com/send/?text='+enc,'_blank');
+      if(!w){try{navigator.clipboard.writeText(msg);}catch(e3){}
+        showToast('📋 نُسخت الرسالة — الصقها في واتساب لأي جهة اتصال');}
+    }
+  }catch(e){
+    clearTimeout(fallback);
+    try{window.open('https://api.whatsapp.com/send/?text='+enc,'_blank');}catch(e4){}
+  }
+}
+
+/* رسالة جاهزة ثم يفتح واتساب لتختار أي جهة اتصال من محادثاتك */
+function sendWaPick(){
+  const app=currentApp;
+  const code=document.getElementById('generatedCode').textContent;
+  const client=document.getElementById('clientName').value.trim()||'الزبون';
+  if(!code||code.startsWith('—'))return;
+  const how=app.keyType==='vts'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط «التوليد التلقائي» ⟵ في بطاقة التفعيل الصق رمز VTS كاملاً ثم اضغط «تفعيل التطبيق».':(app.keyType==='schedule'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ شاشة التفعيل ⟵ الصق المفتاح كاملاً ثم اضغط «تفعيل».':(app.keyType==='mkh'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ شاشة التفعيل ⟵ اكتب المفتاح كاملاً بصيغة MKH-XXXX-XXXX ثم اضغط «✅ تفعيل البرنامج».':(app.keyType==='ustadh'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط زر 🔑 التفعيل ⟵ الصق المفتاح كاملاً ثم اضغط «تفعيل».':(app.keyType==='results'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط زر 🔑 في الشريط العلوي ⟵ الصق المفتاح كاملاً ثم اضغط «تفعيل».':''))));
+  const msg='مرحباً '+client+'\n\nرمز تفعيل '+app.name+':\n\n'+code+'\n'+how+'\n⚠️ هذا الرمز خاص بجهازك فقط ولا يعمل على أي جهاز آخر.\n\nشكراً لثقتكم 💚';
+  obWaPick(msg);
+}
+
+function sendViaWhatsApp(){
+  const app=currentApp;
+  const code=document.getElementById('generatedCode').textContent;
+  const client=document.getElementById('clientName').value.trim()||'الزبون';
+  if(!code||code.startsWith('—'))return;
+  /* ✦ إرسال مباشر لأي رقم زبون: نطبع الرقم ونفتح محادثته هو لا محادثتك */
+  const phone=obNormPhone((document.getElementById('clientPhone')||{}).value);
+  if(!phone||phone.length<7){
+    showToast('⚠️ اكتب رقم الزبون أولاً ليُرسل إليه مباشرة');
+    const inp=document.getElementById('clientPhone');if(inp)inp.focus();
+    return;
+  }
+  const how=app.keyType==='vts'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط «التوليد التلقائي» ⟵ في بطاقة التفعيل الصق رمز VTS كاملاً ثم اضغط «تفعيل التطبيق».':(app.keyType==='schedule'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ شاشة التفعيل ⟵ الصق المفتاح كاملاً ثم اضغط «تفعيل».':(app.keyType==='mkh'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ شاشة التفعيل ⟵ اكتب المفتاح كاملاً بصيغة MKH-XXXX-XXXX ثم اضغط «✅ تفعيل البرنامج».':(app.keyType==='ustadh'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط زر 🔑 التفعيل ⟵ الصق المفتاح كاملاً ثم اضغط «تفعيل».':(app.keyType==='results'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط زر 🔑 في الشريط العلوي ⟵ الصق المفتاح كاملاً ثم اضغط «تفعيل».':''))));
+  const msg='مرحباً '+client+'\n\nرمز تفعيل '+app.name+':\n\n'+code+'\n'+how+'\n⚠️ هذا الرمز خاص بجهازك فقط ولا يعمل على أي جهاز آخر.\n\nشكراً لثقتكم 💚';
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function sendCodeWA(idx){
+  const app=currentApp;
+  const h=getHistory(app);
+  const item=h[idx];
+  if(!item)return;
+  const how=app.keyType==='vts'?'\n📌 طريقة الاستخدام: افتح التطبيق ⟵ اضغط «التوليد التلقائي» ⟵ في بطاقة التفعيل الصق رمز VTS كاملاً ثم اضغط «تفعيل التطبيق».':(app.keyType==='schedule'?'\n📌 افتح التطبيق ⟵ التفعيل ⟵ الصق المفتاح كاملاً.':(app.keyType==='mkh'?'\n📌 افتح التطبيق ⟵ التفعيل ⟵ اكتب المفتاح كاملاً ثم «تفعيل البرنامج».':(app.keyType==='ustadh'?'\n📌 افتح التطبيق ⟵ زر 🔑 ⟵ الصق المفتاح ثم «تفعيل».':(app.keyType==='results'?'\n📌 افتح التطبيق ⟵ زر 🔑 ⟵ الصق المفتاح ثم «تفعيل».':''))));
+  const msg='مرحباً '+(item.client||'الزبون')+'\n\nرمز تفعيل '+app.name+':\n\n'+item.code+'\n'+how+'\n⚠️ هذا الرمز خاص بجهازك فقط.';
+  /* يفتح واتساب مع قائمة جهات الاتصال — وإن كان للكود رقم محفوظ نرسل له مباشرة */
+  if(item.phone&&String(item.phone).length>=7){
+    window.open('https://wa.me/'+item.phone+'?text='+encodeURIComponent(msg),'_blank');
+  }else{
+    obWaPick(msg);
+  }
+}
+
+function revokeCode(){
+  const app=currentApp;
+  const code=document.getElementById('revokeCode').value.trim();
+  const result=document.getElementById('revokeResult');
+  if(!code){result.className='revoke-result error';result.textContent='⚠️ أدخل رمز التفعيل';return}
+  const h=getHistory(app);
+  let found=false;
+  h.forEach(item=>{if(item.code===code){item.revoked=true;found=true}});
+  if(found){saveHistory(app,h);result.className='revoke-result success';result.textContent='✅ تم إلغاء التفعيل بنجاح';renderHistoryList();showToast('✅ تم الإلغاء')}
+  else{result.className='revoke-result error';result.textContent='⚠️ الرمز غير موجود في السجل'}
+}
+
+function revokeFromHistory(idx){
+  const app=currentApp;
+  if(!confirm('إلغاء تفعيل هذا الرمز؟'))return;
+  const h=getHistory(app);
+  if(h[idx]){h[idx].revoked=true;saveHistory(app,h);renderHistoryList();showToast('✅ تم الإلغاء')}
+}
+
+function clearHistory(){
+  const app=currentApp;
+  if(!confirm('مسح جميع السجلات؟'))return;
+  saveHistory(app,[]);
+  renderHistoryList();
+  renderAppPanel();
+  showToast('✅ تم مسح السجل');
+}
+
+const SCHOOL_LINKS_KEY='hsm_school_links_v1';
+const SCHOOL_APP_BASE='https://hussainnahi1989-ctrl.github.io/-/';
+function getSchoolLinks(){try{return JSON.parse(localStorage.getItem(SCHOOL_LINKS_KEY)||'[]')}catch(e){return[]}}
+function saveSchoolLinks(a){localStorage.setItem(SCHOOL_LINKS_KEY,JSON.stringify(a))}
+function slugSchool(v){
+  v=String(v||'').trim().toLowerCase();
+  v=v.replace(/\s+/g,'').replace(/[^a-z0-9_\-]/g,'');
+  return v.slice(0,40);
+}
+function makeSchoolLink(){
+  const name=(document.getElementById('schName')||{}).value||'';
+  let code=slugSchool((document.getElementById('schCode')||{}).value||'');
+  if(!code) code=slugSchool(name);
+  if(!code){showToast('⚠️ اكتب رمزاً إنجليزياً مثل alnour');return}
+  let base=((document.getElementById('schBase')||{}).value||SCHOOL_APP_BASE).trim();
+  if(!base) base=SCHOOL_APP_BASE;
+  base=base.replace(/\/?$/,'');
+  if(base.indexOf('?')>=0) base=base.split('?')[0].replace(/\/$/,'');
+  const url=base+'/?s='+encodeURIComponent(code);
+  const box=document.getElementById('schoolLinkBox');
+  if(box) box.textContent=url;
+  const g=document.getElementById('schWaGroup'); if(g) g.style.display='flex';
+  const a=getSchoolLinks();
+  a.push({name:name.trim()||code,code:code,url:url,date:new Date().toISOString(),phone:obNormPhone((document.getElementById('schPhone')||{}).value)});
+  saveSchoolLinks(a);
+  renderSchoolLinkHist();
+  showToast('✅ تم إنشاء رابط المدرسة');
+}
+function copySchoolLink(){
+  const t=(document.getElementById('schoolLinkBox')||{}).textContent||'';
+  if(!t||t.indexOf('http')!==0){showToast('⚠️ أنشئ الرابط أولاً');return}
+  copyText(t);
+}
+function sendSchoolLinkWA(){
+  const url=(document.getElementById('schoolLinkBox')||{}).textContent||'';
+  const name=(document.getElementById('schName')||{}).value.trim()||'المدرسة';
+  if(!url||url.indexOf('http')!==0)return;
+  const msg='مرحباً '+name+'\n\nرابط منظومتكم المدرسية الخاص (لا تشاركوه مع مدرسة أخرى):\n\n'+url+'\n\nالمدير يدخل أولاً بحساب admin ثم ينشئ حسابات المعلمين والطلاب من قسم المهام.\nالمعلمون والطلاب يفتحون نفس هذا الرابط.\n\nشكراً لثقتكم 💚';
+  const phone=obNormPhone((document.getElementById('schPhone')||{}).value);
+  if(phone&&phone.length>=7) window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+  else obWaPick(msg);
+}
+function renderSchoolLinkHist(){
+  const el=document.getElementById('schoolLinkHist'); if(!el)return;
+  const a=getSchoolLinks();
+  if(!a.length){el.innerHTML='';return}
+  el.innerHTML='<div style="color:#f5af19;font-size:12px;font-weight:800;margin-bottom:8px">الروابط المُنشأة ('+a.length+')</div>'+
+    a.slice().reverse().map(function(x,i){
+      return '<div class="history-item"><div class="info"><div class="name">'+escapeHtml(x.name||x.code)+'</div><div class="code" title="'+escapeHtml(x.url)+'">'+escapeHtml(x.url)+'</div><div class="date">'+new Date(x.date).toLocaleString('ar-IQ')+'</div></div>'+
+        '<div class="actions"><button class="btn btn-copy btn-sm" onclick="copyText(\''+String(x.url).replace(/'/g,'')+'\')">📋</button></div></div>';
+    }).join('');
+}
+
+// Init
+renderMainMenu();
+renderAcctsBadge();
+</script>
+</body>
+</html>

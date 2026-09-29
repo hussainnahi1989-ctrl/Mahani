@@ -155,11 +155,14 @@ function clientDataReady() { return !!(readLocal(CLIENT_PHONE_KEY) && readLocal(
 function schoolInfo() {
   const out = { school: '', principal: '', phone: '', stage: '', gender: '' };
   try {
+    /* حزمة التحديث تعرض نموذجاً أحدث؛ بياناته المؤقتة تتقدم على الحقول المحفوظة
+       عند إنشاء الطلب فقط، بينما تبقى بيانات زبائن Mahani الحالية كما هي. */
+    const requested = (window.__VTS_ONLINE_REQUEST_DATA__ && typeof window.__VTS_ONLINE_REQUEST_DATA__ === 'object') ? window.__VTS_ONLINE_REQUEST_DATA__ : {};
     const s = (window.STATE && window.STATE.settings) || {};
-    out.school = String(s.schoolName || '').slice(0, 120);
-    out.principal = String(s.principalName || '').slice(0, 120);
-    out.phone = readLocal(CLIENT_PHONE_KEY).slice(0, 40);
-    out.stage = readLocal(CLIENT_STAGE_KEY).slice(0, 20);
+    out.school = String(requested.school || s.schoolName || '').slice(0, 120);
+    out.principal = String(requested.principal || s.principalName || '').slice(0, 120);
+    out.phone = String(requested.phone || readLocal(CLIENT_PHONE_KEY) || '').slice(0, 40);
+    out.stage = String(requested.stage || readLocal(CLIENT_STAGE_KEY) || '').slice(0, 20);
     out.gender = String(s.schoolGender || '').slice(0, 10);
   } catch (e) {}
   return out;
