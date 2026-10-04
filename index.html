@@ -2132,10 +2132,10 @@ document.getElementById('appAppleTouchIcon').href = window.__SCHEDULER_BRAND.app
           </div>
         </div>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="genClear" checked> تفريغ الجداول الحالية قبل التوليد</label>
-          <label class="check"><input type="checkbox" id="genSpread" checked> منع تكرار المادة النظرية في اليوم نفسه</label>
-          <label class="check"><input type="checkbox" id="genAutoAssign" checked> إكمال الإسنادات الناقصة تلقائياً (يحافظ على اختياراتك)</label>
-          <label class="check"><input type="checkbox" id="genAutoP" checked> محاولة حلول إضافية عند التعذّر</label>
+          <label class="check"><input type="checkbox" id="genClear"> تفريغ الجداول الحالية قبل التوليد</label>
+          <label class="check"><input type="checkbox" id="genSpread"> منع تكرار المادة النظرية في اليوم نفسه</label>
+          <label class="check"><input type="checkbox" id="genAutoAssign"> إكمال الإسنادات الناقصة تلقائياً (يحافظ على اختياراتك)</label>
+          <label class="check"><input type="checkbox" id="genAutoP"> محاولة حلول إضافية عند التعذّر</label>
         </div>
         <div class="row" style="margin-top:12px;align-items:flex-end;">
           <button class="btn" onclick="runGenerator()">⚙️ توليد الجداول الآن</button>
@@ -6675,6 +6675,7 @@ function setAssignment(classId, subject, teacher){
   saveState();
   renderTeachersList();
   renderAssignments();
+  applyAssignmentsToCurrentSchedule();
 }
 function setPracticalCoTeacher(classId,subject,index,teacher){
   const rule=ensureAssignmentRule(classId,subject);
@@ -6692,6 +6693,7 @@ function setPracticalCoTeacher(classId,subject,index,teacher){
   rule.practicalCoTeachers=uniqueTeacherNames(pair).slice(0,2);
   cleanupAssignmentRule(classId,subject);
   saveState(); renderTeachersList(); renderAssignments();
+  applyAssignmentsToCurrentSchedule();
 }
 function setTheoryPairsRule(classId,subject,enabled){
   const rule=ensureAssignmentRule(classId,subject);
@@ -6720,20 +6722,67 @@ function copyAssignments(){
   saveState();
   renderAssignments();
   renderTeachersList();
+  applyAssignmentsToCurrentSchedule();
   alert('تم نسخ إسناد ' + n + ' مادة وقواعد العملي/الأزواج المطابقة من «' + srcCls.name + '»');
 }
 
 /* =========================================================
    التوليد التلقائي — واجهة المحرك
    ========================================================= */
+/* الإسناد هو المرجع الوحيد لمدرس كل حصة: أي خلية في جدول قائم تعرض مدرساً غير المسند
+   حالياً لمادتها (لأن الإسناد تغيّر بعد التوليد) تُصحَّح إلى المسند. يُعيد عدد الخلايا المصححة. */
+function syncScheduleTeachersWithAssignments(schedules, source){
+  const src=source||STATE; let changed=0;
+  Object.keys(schedules||{}).forEach(cid=>{
+    const sc=schedules[cid]; if(!isPlainRecord(sc)) return;
+    Object.keys(sc).forEach(key=>{
+      const cell=sc[key]; if(!cell||!cell.subject) return;
+      const type=cell.type==='تطبيقي'?'تطبيقي':'نظري';
+      const expected=assignmentTeacherNamesFor(cid,cell.subject,type,src);
+      if(!expected.length) return;
+      const actual=cellTeacherNames(cell);
+      if(actual.length===expected.length && expected.every(name=>actual.includes(name))) return;
+      cell.teacher=expected[0];
+      if(expected.length>1) cell.coTeachers=expected.slice(); else delete cell.coTeachers;
+      delete cell.teachers;
+      changed++;
+    });
+  });
+  return changed;
+}
+function countTeacherClashes(schedules){
+  const seen=Object.create(null); let clashes=0;
+  Object.keys(schedules||{}).forEach(cid=>Object.keys(schedules[cid]||{}).forEach(key=>{
+    const cell=schedules[cid][key]; if(!cell||!cell.subject) return;
+    cellTeacherNames(cell).forEach(name=>{ const k=name+'\u0001'+key; if(seen[k]) clashes++; else seen[k]=1; });
+  }));
+  return clashes;
+}
+/* بعد أي تعديل إسناد: يُحدَّث الجدول القائم فوراً كي لا يظهر مدرس قديم للمادة. */
+function applyAssignmentsToCurrentSchedule(){
+  const changed=syncScheduleTeachersWithAssignments(STATE.schedules);
+  if(!changed) return 0;
+  detachActiveSavedSchedule();
+  saveState();
+  refreshScheduleConsumers();
+  try{ renderSavedSchedules(); }catch(e){}
+  const clashes=countTeacherClashes(STATE.schedules);
+  const msg=`✓ حُدّث مدرس ${toArabicNum(changed)} حصة في الجدول الحالي حسب الإسناد الجديد.`+(clashes?` ⚠️ ظهر ${toArabicNum(clashes)} تعارض للمدرس — أعد التوليد لحلها.`:'');
+  try{ showLicenseToast(msg, !!clashes); }catch(e){}
+  return changed;
+}
+
 function buildEngineInput(keepExisting){
+  /* الحصص المُبقاة تأخذ مدرسها من الإسناد الحالي، لا من التوليد السابق. */
+  const presets = keepExisting ? cloneScheduleSnapshot(STATE.schedules || {}) : {};
+  if(keepExisting) syncScheduleTeachersWithAssignments(presets);
   return {
     days: getDayNames(),
     periods: STATE.settings.periodsPerDay,
     classes: STATE.classes.map(c => ({ id:c.id, name:c.name, plan:getPlan(c.branch, c.spec, c.year) })),
     assignments: STATE.assignments || {},
     assignmentRules: STATE.assignmentRules || {},
-    presets: keepExisting ? (STATE.schedules || {}) : {},
+    presets,
     teachers: STATE.teachers || []      // أيام الإجازة والحصص الممنوعة
   };
 }
@@ -6797,13 +6846,24 @@ function autoBalanceAssignments(options){
     if(!Object.prototype.hasOwnProperty.call(load,name)) load[name]=0;
     if(!loadByLimit[name]) loadByLimit[name]=new Array(maxRelevantPeriod+1).fill(0);
   };
+  /* كتل العملي لكل مدرس: لا يُسند للمدرس عملي لا تتسع كتله الطويلة في أيامه المتاحة. */
+  const chunksOf={};
+  const practicalChunks=item=>item.practical?splitPractical(item.practical,practicalCap):[];
+  const teacherFreeDays=teacher=>teacher?Math.max(0,D-new Set((teacher.offDays||[]).map(String).filter(d=>days.includes(d))).size):D;
+  const teacherFreeWidth=teacher=>teacher?Math.max(0,P-new Set((teacher.offPeriods||[]).map(Number).filter(p=>p>=1&&p<=P)).size):P;
+  const packsWith=(name,item)=>{
+    const extra=practicalChunks(item); if(!extra.length) return true;
+    const t=byName[name];
+    return canPackPracticalTeacherBlocks((chunksOf[name]||[]).concat(extra),teacherFreeDays(t),teacherFreeWidth(t))!==false;
+  };
   const addLoad=(name,item)=>{
     if(!name) return;
     ensureLoadSlot(name);
+    if(item.practical) (chunksOf[name]||(chunksOf[name]=[])).push(...practicalChunks(item));
     load[name]+=item.n;
     for(let h=item.limit;h<=maxRelevantPeriod;h++) loadByLimit[name][h]+=item.n;
   };
-  fixedPracticalTeams.forEach(item=>item.teachers.forEach(name=>addLoad(name,item)));
+  fixedPracticalTeams.forEach(item=>item.teachers.forEach(name=>addLoad(name,Object.assign({},item,{practical:item.n}))));
   const pending=[];
   items.forEach(item=>{
     const existing=preserveExisting ? String((currentAssignments[item.cid]||{})[item.subj]||'').trim() : '';
@@ -6822,6 +6882,7 @@ function autoBalanceAssignments(options){
     const eligible=names.filter(name=>{
       const teacher=byName[name], totalCap=capOf(teacher);
       if(item.n>capOf(teacher,item.limit) || load[name]+item.n>totalCap) return false;
+      if(!packsWith(name,item)) return false;
       for(let h=item.limit;h<=maxRelevantPeriod;h++) if(loadByLimit[name][h]+item.n>capOf(teacher,h)) return false;
       return true;
     });
@@ -7025,7 +7086,7 @@ function solvePrefixModelWithHighs(highs, input, options){
 
   /* حدّ معقول لحجم النموذج في المتصفح. تجاوزه لا يعني الاستحالة؛ عندئذٍ
      يبقى محرك البحث الاعتيادي والتقرير الصريح هما المسار الآمن. */
-  const MAX_PRACTICAL_OPTIONS=16000, MAX_COLUMNS=60000;
+  const MAX_PRACTICAL_OPTIONS=40000, MAX_COLUMNS=160000;
   /* تلميح اختياري: تثبيت كتل العملي كما وردت في جدول سابق مكتمل، فيصبح النموذج للنظري فقط
      وأصغر بكثير؛ يُستعمل لإعادة ترتيب النظري بلا تكرار مع إبقاء العملي في مكانه. */
   const practicalHint=(options&&options.practicalHint)||null;
@@ -7156,7 +7217,7 @@ function solvePrefixModelWithHighs(highs, input, options){
       matrix:{format:'csc',numRows:rows.length,numCols:variables.length,starts,indices:new Int32Array(indices),values:new Float64Array(values)},
       integrality:(()=>{ const kinds=new Int32Array(variables.length).fill(highs.constants.variableType.integer); runCols.forEach(col=>{ kinds[col]=highs.constants.variableType.continuous; }); return kinds; })()
     });
-    model.options.set({output_flag:false,presolve:'on',time_limit:Math.max(2,Math.min((softSameDay||runCols.length)?30:12,Number((options||{}).prefixSolverSeconds)||7))});
+    model.options.set({output_flag:false,presolve:'on',time_limit:Math.max(2,Math.min((softSameDay||runCols.length)?30:12,Number((options||{}).prefixSolverSeconds)||7),Math.min(90,Math.ceil(variables.length/1200)))});
     const run=model.run();
     status=Number((run&&run.modelStatus)!=null?run.modelStatus:model.getModelStatus());
     solution=model.getSolution();
@@ -7242,6 +7303,17 @@ function runGenerator(newSeed){
   const keepExisting = !document.getElementById('genClear').checked;
   const spread = document.getElementById('genSpread').checked;
   const autoP = !document.getElementById('genAutoP') || document.getElementById('genAutoP').checked;
+  /* مدرس واحد في عمود «فريق العملي» مع ترك مدرس المادة فارغاً يعني أنه مدرس المادة المفرد؛
+     نعتمده مدرساً للمادة بدل أن تختار الموازنة مدرساً آخر. */
+  let promotedSingles=0;
+  Object.keys(STATE.assignmentRules||{}).forEach(cid=>Object.keys(STATE.assignmentRules[cid]||{}).forEach(subject=>{
+    const rule=STATE.assignmentRules[cid][subject], team=uniqueTeacherNames(rule&&rule.practicalCoTeachers);
+    if(team.length!==1 || primaryAssignmentTeacher(cid,subject)) return;
+    if(!STATE.assignments[cid]) STATE.assignments[cid]={};
+    STATE.assignments[cid][subject]=team[0];
+    delete rule.practicalCoTeachers; cleanupAssignmentRule(cid,subject); promotedSingles++;
+  }));
+  if(promotedSingles){ saveState(); if(typeof renderAssignments==='function') renderAssignments(); }
   if(document.getElementById('genAutoAssign').checked){
     /* يكمل الفراغات فقط؛ الإسناد الذي اختاره المستخدم يظل المرجع ولا يُبدّل أثناء التوليد. */
     const bal = autoBalanceAssignments({ practicalCapPerDay:cap, preserveExisting:true });
@@ -7249,6 +7321,8 @@ function runGenerator(newSeed){
     saveState();
     if(typeof renderAssignments === 'function') renderAssignments();
   }
+  /* حتى لو تعذّر التوليد، لا يبقى في الجدول المعروض مدرس قديم لمادة أُسندت لغيره. */
+  if(syncScheduleTeachersWithAssignments(STATE.schedules)){ detachActiveSavedSchedule(); saveState(); refreshScheduleConsumers(); }
   const seedField = document.getElementById('genSeed');
   let seed = parseInt(seedField.value);
   if(newSeed || !isFinite(seed)) seed = Math.floor(Math.random() * 100) + 1;
@@ -7289,7 +7363,9 @@ function runGenerator(newSeed){
   );
   /* عند تعذر الجدول مع منع التكرار: محاولة تشخيصية أخيرة تسمح بالتكرار عند الضرورة فقط
      (مع إبقاء تفضيل النشر). نتيجتها لا تُعتمد تلقائياً أبداً؛ تُعرض على المستخدم ليقرر. */
-  if(spread) plan.push({ label:'محاولة تشخيصية: السماح بالتكرار عند الضرورة فقط', o:{ balanceDays:false }, ms:stageMs, setP:fallbackP, relax:true });
+  /* المنع يُطبّق صارماً في كل المراحل دائماً؛ الفرق عند إلغاء الخيار أن المحاولة الأخيرة
+     (التي تسمح بالتكرار عند الضرورة فقط) تُعتمد تلقائياً بدل أن تنتظر موافقة المستخدم. */
+  plan.push({ label:'محاولة أخيرة: السماح بالتكرار عند الضرورة فقط', o:{ balanceDays:false }, ms:stageMs, setP:fallbackP, relax:true });
   let relaxed = null, polishInfo = null;
 
   let si = 0, best = null, raisedTo = null;
@@ -7317,6 +7393,11 @@ function runGenerator(newSeed){
       renderGenReport({ report:{ ok:false, committed:false, placed:0, total:0, percent:0, missing:[], infeasible:[], timedOut:true, ms:0, nodes:0, restarts:0, emptyPlan:[], ruleViolations:[], integrityIssues:[] } });
       return;
     }
+    let relaxedAuto=false;
+    if(!spread && !(best && best.r.report.ok) && relaxed && relaxed.r.report.ok){
+      best=relaxed; relaxed=null; relaxedAuto=true;
+      if(best.raisedTo) raisedTo=best.raisedTo;
+    }
     if(!best) best={r:Object.assign({},relaxed.r,{report:Object.assign({},relaxed.r.report,{ok:false})})};
     const accepted=!!best.r.report.ok;
     if(!accepted && optimizerFailures.length){
@@ -7336,6 +7417,10 @@ function runGenerator(newSeed){
     }
     renderGenReport(best.r);
     if(accepted && polishInfo) appendPolishNotice(polishInfo);
+    if(accepted && relaxedAuto){
+      const repeats=countSameDayRepeats(STATE.schedules);
+      if(repeats.length) document.getElementById('genReport').insertAdjacentHTML('beforeend',`<div class="report-box" style="margin-top:10px;">🔁 تعذّر جدول بلا أي تكرار، فاعتُمد جدول يتكرر فيه ${toArabicNum(repeats.length)} مادة في اليوم نفسه عند الضرورة فقط. لمنع ذلك نهائياً فعّل «منع تكرار المادة النظرية في اليوم نفسه» أو أضف مدرساً.</div>`);
+    }
     if(accepted && raisedTo){
       document.getElementById('genReport').insertAdjacentHTML('beforeend',
         `<div class="report-box good" style="margin-top:10px;">ℹ️ رُفع عدد الحصص اليومية من ${toArabicNum(P0)} إلى ${toArabicNum(raisedTo)} تلقائياً لضمان اكتمال النصاب بلا إهمال أي حصة — يمكنك تعديله من الإعدادات.</div>`);
@@ -7392,7 +7477,7 @@ function runGenerator(newSeed){
           /* واجهة المدرسة لا تعتمد حصة بلا مدرس مسند؛ المحرك المجرد يبقى مرناً للاختبارات والأدوات. */
           { practicalCapPerDay:cap, maxRestarts:restarts, maxMs:st.ms + (extraMs||0), spreadPreference:spread, requireTeacherAssignments:true }, st.o,
           /* منع التكرار قيد صلب في كل المراحل؛ المراحل الاحتياطية تُسقط التفضيلات الناعمة فقط. */
-          { noSameDayRepeat:spread && !st.relax },
+          { noSameDayRepeat:!st.relax },
           /* كل بذرة مختلفة فعلاً؛ السابق كان يعيد المحاولة نفسها إلا في المحاولة الأخيرة. */
           { seed: seed + si*101 + variant*7919 + (extraMs?7777:0) }));
       };
@@ -7455,7 +7540,7 @@ function runGenerator(newSeed){
         optimizedPeriods.add(modelInput.periods);
         prog.innerHTML=`<div class="meta">⚙️ جارٍ ترميم بداية الأيام بنموذج القيود الدقيق…</div>
           <div class="bar"><i style="width:${Math.round((si-1)/plan.length*100)}%"></i></div>`;
-        optimizePrefixWithHighs(modelInput,{ practicalCapPerDay:cap, noSameDayRepeat:spread, prefixSolverSeconds:Math.max(3,Math.min(10,Math.ceil(stageMs/1000)+4)) },prefixCandidate)
+        optimizePrefixWithHighs(modelInput,{ practicalCapPerDay:cap, noSameDayRepeat:true, prefixSolverSeconds:Math.max(3,Math.min(10,Math.ceil(stageMs/1000)+4)) },prefixCandidate)
           .then(optimized=>{
             if(runSerial!==GENERATION_RUN_SERIAL) return;
             if(optimized && optimized.ok){
@@ -7706,7 +7791,10 @@ function polishTimetable(input, schedules, options){
       ta.forEach(x=>{ busy[bk(x,d1,p1)]=cid; }); tb.forEach(x=>{ busy[bk(x,d2,p2)]=cid; });
       const affected=[...new Set(ta.concat(tb))];
       /* توزيع أفضل على الأسبوع: مادة قليلة الحصص لا تأتي في يومين متتاليين إن أمكن. */
-      const spread=subject=>{ let n=0; for(let d=0;d+1<D;d++) if(theoryCountOn(cid,subject,d)&&theoryCountOn(cid,subject,d+1)) n++; return n*1.5; };
+      /* وحتى عند إلغاء خيار المنع: كل تكرار للمادة في اليوم يكلّف، فيقلّه المحسّن قدر الإمكان. */
+      const spread=subject=>{ let n=0, extra=0; const capS=caps[cid+'\u0001'+subject]||1;
+        for(let d=0;d<D;d++){ const k=theoryCountOn(cid,subject,d); if(k>capS) extra+=k-capS; if(d+1<D && k && theoryCountOn(cid,subject,d+1)) n++; }
+        return n*1.5 + extra*6; };
       let before=spread(a.subject)+spread(b.subject); affected.forEach(x=>{ before+=dayCost(x,d1)+dayCost(x,d2); });
       const swap=()=>{ const A=out[cid][key(d1,p1)], B=out[cid][key(d2,p2)];
         cellTeacherNames(A).forEach(x=>{ delete busy[bk(x,d1,p1)]; }); cellTeacherNames(B).forEach(x=>{ delete busy[bk(x,d2,p2)]; });
@@ -9505,12 +9593,16 @@ function generateTimetable(input, options){
     const chunks=tasks.flatMap(task=>task.blocks);
     /* نستخدم P لا حد الشعبة: هذا أكثر تساهلاً، لذا فالفشل برهان على أن
        تغيير توزيع الإسناد مطلوب حتى قبل احتساب تفرغ المدرس أو فاصل الأيام. */
-    const packed=canPackPracticalTeacherBlocks(chunks,D,P);
+    /* أيام إجازة المدرس وحصصه الممنوعة تقلّص الأيام والعرض المتاحين لكتله فعلاً. */
+    const src=((input&&input.teachers)||[]).find(x=>String((x&&x.name)||'').trim()===teacher)||{};
+    const freeDays=Math.max(0,D-new Set((src.offDays||[]).map(String).filter(d=>days.includes(d))).size);
+    const freeWidth=Math.max(0,P-new Set((src.offPeriods||[]).map(Number).filter(p=>p>=1&&p<=P)).size);
+    const packed=canPackPracticalTeacherBlocks(chunks,freeDays,freeWidth);
     if(packed!==false) return;
     const total=chunks.reduce((sum,n)=>sum+n,0);
     const suggested=tasks.slice().sort((a,b)=>b.practical-a.practical||String(a.className).localeCompare(String(b.className),'ar'))[0]||{};
     const blockText=chunks.slice().sort((a,b)=>b-a).join(' + ');
-    const message=`الكتل العملية المسندة للمدرس «${teacher}» لا تتسع في ${D} أيام ضمن حد ${P} حصص يومياً (${blockText} = ${total} حصة)`;
+    const message=`الكتل العملية المسندة للمدرس «${teacher}» لا تتسع في أيامه المتاحة (${freeDays} من ${D}) ضمن ${freeWidth} حصص يومياً (${blockText} = ${total} حصة)؛ الكتلتان الطويلتان لا تجتمعان في يوم واحد`;
     infeasible.push(message);
     blockers.push({
       kind:'teacher-practical-packing', teacher, required:total, days:D, periods:P, blocks:chunks.slice().sort((a,b)=>b-a),
