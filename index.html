@@ -7211,7 +7211,11 @@ function solvePrefixModelWithHighs(highs, input, options){
       numCols:variables.length, numRows:rows.length,
       sense:highs.constants.objectiveSense.minimize,
       colCost:(()=>{ const cost=new Float64Array(variables.length); slackCols.forEach(col=>{ cost[col]=runCols.length?25:1; }); runCols.forEach(col=>{ cost[col]=runCost[col]; }); return cost; })(),
-      colLower:(()=>{ const low=new Float64Array(variables.length); pinCols.forEach(col=>{ low[col]=1; }); return low; })(), colUpper:(()=>{ const up=new Float64Array(variables.length).fill(1); slackCols.forEach(col=>{ up[col]=P; }); return up; })(),
+      colLower:(()=>{ const low=new Float64Array(variables.length); pinCols.forEach(col=>{ low[col]=1; });
+        /* توازن الأيام: بسبب قيد البادئة يكفي إلزام الخانة رقم (الحد الأدنى) بأن تكون مشغولة. */
+        if(options&&options.minDaily) classes.forEach(cls=>{ const lowN=classMinDailyLessons(cls.plan,D,P,cap); if(!lowN) return;
+          for(let d=0;d<D;d++){ const col=active[cellKey(cls.id,d,lowN-1)]; if(col!==undefined) low[col]=1; } });
+        return low; })(), colUpper:(()=>{ const up=new Float64Array(variables.length).fill(1); slackCols.forEach(col=>{ up[col]=P; }); return up; })(),
       rowLower:new Float64Array(rows.map(row=>row.lower)),
       rowUpper:new Float64Array(rows.map(row=>row.upper)),
       matrix:{format:'csc',numRows:rows.length,numCols:variables.length,starts,indices:new Int32Array(indices),values:new Float64Array(values)},
@@ -7387,7 +7391,31 @@ function runGenerator(newSeed){
     if(result && isBetterResult(result,best)){ best={r:result}; return true; }
     return false;
   }
+  /* قبل الاعتماد: إن كان في الجدول يوم قصير جداً لشعبة ما (فراغات متكدسة في يوم واحد)،
+     نعيد حل النموذج الدقيق مع حد أدنى لحصص كل يوم. لا يُستبدل الجدول إلا بنسخة سليمة ومتوازنة. */
+  let balanceTried=false;
   function finish(){
+    if(runSerial!==GENERATION_RUN_SERIAL) return;
+    const candidate = (best && best.r.report.ok) ? best : (!spread && relaxed && relaxed.r.report.ok ? relaxed : null);
+    if(!balanceTried && candidate){
+      balanceTried=true;
+      const inp=buildEngineInput(keepExisting);
+      if(candidate.raisedTo||raisedTo) inp.periods=candidate.raisedTo||raisedTo;
+      if(unbalancedClassDays(inp,candidate.r.schedules,cap).length && prefixModelSupportsPins(inp)){
+        const hasRepeats=countSameDayRepeats(candidate.r.schedules).length>0;
+        prog.innerHTML=`<div class="meta">⚖️ موازنة عدد الحصص على أيام الأسبوع…</div><div class="bar"><i style="width:97%"></i></div>`;
+        optimizePrefixWithHighs(inp,{ practicalCapPerDay:cap, minDaily:true, noSameDayRepeat:!hasRepeats, softSameDay:hasRepeats, prefixSolverSeconds:Math.max(4,Math.min(10,Math.ceil(stageMs/1000)+3)) },candidate.r)
+          .then(o=>{
+            if(runSerial!==GENERATION_RUN_SERIAL) return;
+            if(o && o.ok && !unbalancedClassDays(inp,o.schedules,cap).length && countSameDayRepeats(o.schedules).length<=countSameDayRepeats(candidate.r.schedules).length) candidate.r=o;
+            finishCore();
+          }).catch(()=>finishCore());
+        return;
+      }
+    }
+    finishCore();
+  }
+  function finishCore(){
     if(runSerial!==GENERATION_RUN_SERIAL) return;
     if(!best && !relaxed){
       renderGenReport({ report:{ ok:false, committed:false, placed:0, total:0, percent:0, missing:[], infeasible:[], timedOut:true, ms:0, nodes:0, restarts:0, emptyPlan:[], ruleViolations:[], integrityIssues:[] } });
@@ -7690,7 +7718,17 @@ function polishTimetable(input, schedules, options){
   /* كلفة يوم المدرس: كل فراغ داخلي ثقيل، وكل حصة فراغ قبل أول درس أخف؛ فينتقل الفراغ إلى آخر اليوم. */
   const dayCost=(t,d)=>{ let first=-1,last=-1,n=0; for(let p=0;p<P;p++) if(busy[bk(t,d,p)]){ if(first<0) first=p; last=p; n++; }
     return n ? (last-first+1-n)*4 + first : 0; };
-  const totalCost=()=>{ const seen=new Set(); let s=0; Object.keys(busy).forEach(k=>{ const [t,d]=k.split('\u0001'); const id=t+'\u0001'+d; if(!seen.has(id)){ seen.add(id); s+=dayCost(t,Number(d)); } }); return s; };
+  /* توازن أيام الشعبة: مجموع مربعات عدد الحصص يومياً (النصاب ثابت، فالأصغر = الأكثر توازناً).
+     هكذا لا تتكدس الفراغات في يوم واحد قصير بينما بقية الأيام ممتلئة. */
+  const BAL_W=3;
+  const classLimit={}; classes.forEach(c=>{ classLimit[c.id]=classDailyPeriodLimit(c.plan||[],D,P,Number(opt.practicalCap)||P); });
+  const dayLen=(cid,d)=>{ let n=0; for(let p=0;p<P;p++){ const c=out[cid][key(d,p)]; if(c&&c.subject) n++; else break; } return n; };
+  const balanceCost=()=>{ let s=0; classes.forEach(c=>{ for(let d=0;d<D;d++){ const l=dayLen(c.id,d); s+=l*l; } }); return s*BAL_W; };
+  const teacherCost=()=>{ const seen=new Set(); let s=0; Object.keys(busy).forEach(k=>{ const [t,d]=k.split('\u0001'); const id=t+'\u0001'+d; if(!seen.has(id)){ seen.add(id); s+=dayCost(t,Number(d)); } }); return s; };
+  const totalCost=()=>teacherCost()+balanceCost();
+  const classLow={}; classes.forEach(c=>{ classLow[c.id]=classMinDailyLessons(c.plan||[],D,P,Number(opt.practicalCap)||P); });
+  /* لكل شعبة: 2 إذا قصر يوم عن حده الأدنى (فراغات متكدسة)، وإلا الفرق بين أطول يوم وأقصره بعد استثناء اليوم الكامل. */
+  const dayLengths=()=>classes.map(c=>{ const a=[]; for(let d=0;d<D;d++) a.push(dayLen(c.id,d)); return Math.min(...a)<classLow[c.id]?2:0; });
   const gapsOnly=()=>{ const seen=new Set(); let s=0; Object.keys(busy).forEach(k=>{ const [t,d]=k.split('\u0001'); const id=t+'\u0001'+d; if(seen.has(id)) return; seen.add(id);
     let first=-1,last=-1,n=0; for(let p=0;p<P;p++) if(busy[bk(t,Number(d),p)]){ if(first<0) first=p; last=p; n++; } if(n) s+=last-first+1-n; }); return s; };
   const canSit=(names,cid,d,p)=>names.every(x=>{ const o=off[x]; if(o&&(o.d.has(String(days[d]))||o.p.has(p+1))) return false; const b=busy[bk(x,d,p)]; return !b||b===cid; });
@@ -7719,7 +7757,7 @@ function polishTimetable(input, schedules, options){
   };
   const theoryCountOn=(cid,subject,d)=>{ let n=0; for(let p=0;p<P;p++){ const c=out[cid][key(d,p)]; if(c&&c.subject===subject&&c.type!=='تطبيقي') n++; } return n; };
   const pinnedAllow=(cid,subject,d)=>{ let n=0; for(let p=0;p<P;p++){ const c=isPinned(cid,d,p)&&presets[cid][key(d,p)]; if(c&&c.subject===subject&&c.type!=='تطبيقي') n++; } return n; };
-  const startCost=totalCost(), startGaps=gapsOnly();
+  const startCost=totalCost(), startGaps=gapsOnly(), startSpread=dayLengths();
   let cost=startCost, iter=0, accepted=0;
   /* التبريد يتبع الزمن المتاح فعلاً (أبطأ على الأجهزة اللوحية)، لا عدد المحاولات وحده. */
   const T0=0.8, total=Math.max(20000,Number(opt.iterations)||400000), startedAt=Date.now(), budget=Math.max(200,Number(opt.ms)||1500);
@@ -7774,6 +7812,31 @@ function polishTimetable(input, schedules, options){
       let after=0; affected.forEach(x=>{ after+=dayCost(x,d); });
       const delta=after-before;
       if(delta<=0 || rnd()<Math.exp(-delta/T)){ cost+=delta; accepted++; } else undo();
+    }else if(moveRoll<0.87){
+      /* (د) موازنة الأيام: تنتقل آخر حصة نظرية من يوم طويل إلى نهاية يوم أقصر للشعبة نفسها.
+         يبقى اليوم الأول بلا فراغ داخلي، وتوضع الحصة في أول خانة فارغة من اليوم الآخر. */
+      const d1=Math.floor(rnd()*D), d2=Math.floor(rnd()*D); if(d1===d2) continue;
+      const l1=dayLen(cid,d1), l2=dayLen(cid,d2);
+      if(l1-l2<2 || l2>=Math.min(P,classLimit[cid]||P)) continue;
+      const p1=l1-1, p2=l2;
+      const a=out[cid][key(d1,p1)];
+      if(!a||!a.subject||a.type==='تطبيقي'||a.theoryPairId||isPinned(cid,d1,p1)) continue;
+      if(out[cid][key(d2,p2)]) continue;
+      const capA=caps[cid+'\u0001'+a.subject];
+      if(capA && theoryCountOn(cid,a.subject,d2)+1>Math.max(capA,pinnedAllow(cid,a.subject,d2))) continue;
+      const ta=cellTeacherNames(a);
+      if(!canSit(ta,cid,d2,p2)) continue;
+      const spreadA=subject=>{ let n=0, extra=0; const capS=caps[cid+'\u0001'+subject]||1;
+        for(let d=0;d<D;d++){ const k=theoryCountOn(cid,subject,d); if(k>capS) extra+=k-capS; if(d+1<D && k && theoryCountOn(cid,subject,d+1)) n++; }
+        return n*1.5 + extra*6; };
+      let before=spreadA(a.subject)+BAL_W*(l1*l1+l2*l2); ta.forEach(x=>{ before+=dayCost(x,d1)+dayCost(x,d2); });
+      const move=(fromD,fromP,toD,toP)=>{ const c=out[cid][key(fromD,fromP)];
+        cellTeacherNames(c).forEach(x=>{ delete busy[bk(x,fromD,fromP)]; }); delete out[cid][key(fromD,fromP)];
+        out[cid][key(toD,toP)]=c; cellTeacherNames(c).forEach(x=>{ busy[bk(x,toD,toP)]=cid; }); };
+      move(d1,p1,d2,p2);
+      let after=spreadA(a.subject)+BAL_W*((l1-1)*(l1-1)+(l2+1)*(l2+1)); ta.forEach(x=>{ after+=dayCost(x,d1)+dayCost(x,d2); });
+      const delta=after-before;
+      if(delta<=0 || rnd()<Math.exp(-delta/T)){ cost+=delta; accepted++; } else move(d2,p2,d1,p1);
     }else{
       /* (ب) تبديل حصتين نظريتين مفردتين بين يومين مختلفين في الموضعين نفسيهما. */
       const d1=Math.floor(rnd()*D), d2=Math.floor(rnd()*D); if(d1===d2) continue;
@@ -7806,7 +7869,10 @@ function polishTimetable(input, schedules, options){
       if(delta<=0 || rnd()<Math.exp(-delta/T)){ cost+=delta; accepted++; } else swap();
     }
   }
-  return {schedules:out, before:startCost, after:totalCost(), gapsBefore:startGaps, gapsAfter:gapsOnly(), iterations:iter, accepted};
+  const endSpread=dayLengths();
+  return {schedules:out, before:startCost, after:totalCost(), gapsBefore:startGaps, gapsAfter:gapsOnly(),
+    spreadBefore:Math.max(0,...startSpread), spreadAfter:Math.max(0,...endSpread),
+    unevenBefore:startSpread.filter(x=>x>1).length, unevenAfter:endSpread.filter(x=>x>1).length, iterations:iter, accepted};
 }
 
 /* نتيجة المحاولة التشخيصية (مع تكرار ضروري) تنتظر قرار المستخدم ولا تُعتمد وحدها. */
@@ -7833,17 +7899,17 @@ function polishAcceptedSchedules(result, keepExisting, cap, noRepeat){
     const input=buildEngineInput(keepExisting);
     input.periods=STATE.settings.periodsPerDay;
     const auditOpts={practicalCapPerDay:cap, noSameDayRepeat:!!noRepeat, pinned:input.presets||{}};
-    const polished=polishTimetable(input, result.schedules, {pinned:input.presets||{}, ms:Number(STATE.settings.polishMs)||2500, seed:Number(document.getElementById('genSeed')&&document.getElementById('genSeed').value)||1});
-    if(polished.after>=polished.before) return {before:polished.gapsBefore, after:polished.gapsBefore, changed:false};
+    const polished=polishTimetable(input, result.schedules, {practicalCap:cap, pinned:input.presets||{}, ms:Number(STATE.settings.polishMs)||2500, seed:Number(document.getElementById('genSeed')&&document.getElementById('genSeed').value)||1});
+    if(polished.after>=polished.before) return {before:polished.gapsBefore, after:polished.gapsBefore, changed:false, unevenBefore:polished.unevenBefore, unevenAfter:polished.unevenBefore};
     const check=auditGeneratedTimetable(input, polished.schedules, auditOpts);
     const relaxedCheck=noRepeat ? check : auditGeneratedTimetable(input, polished.schedules, Object.assign({},auditOpts,{noSameDayRepeat:false}));
     const baseline=auditGeneratedTimetable(input, result.schedules, auditOpts);
     /* في الجدول المعتمد مع تكرار (بموافقة المستخدم) يكفي ألا يزيد التكرار وأن يبقى كل شرط آخر سليماً. */
     const okNow = check.valid || (!baseline.valid && relaxedCheck.valid && (check.sameDayIssues||[]).length<=(baseline.sameDayIssues||[]).length);
-    if(!okNow) return {before:polished.gapsBefore, after:polished.gapsBefore, changed:false};
+    if(!okNow) return {before:polished.gapsBefore, after:polished.gapsBefore, changed:false, unevenBefore:polished.unevenBefore, unevenAfter:polished.unevenBefore};
     result.schedules=polished.schedules;
     if(result.report) result.report.polish={gapsBefore:polished.gapsBefore,gapsAfter:polished.gapsAfter};
-    return {before:polished.gapsBefore, after:polished.gapsAfter, changed:true};
+    return {before:polished.gapsBefore, after:polished.gapsAfter, changed:true, unevenBefore:polished.unevenBefore, unevenAfter:polished.unevenAfter};
   }catch(err){ return null; }
 }
 function appendPolishNotice(info){
@@ -7851,7 +7917,10 @@ function appendPolishNotice(info){
   const text=info.changed
     ? `✨ تحسين تلقائي: فراغات المدرسين وسط اليوم قلّت من ${toArabicNum(info.before)} إلى ${toArabicNum(info.after)}، ونُقلت أوقات الفراغ إلى آخر اليوم قدر الإمكان. فراغات الشُعب تبقى دائماً في آخر اليوم.`
     : `✨ فراغات الشُعب كلها في آخر اليوم، وفراغات المدرسين وسط اليوم: ${toArabicNum(info.before)}.`;
-  box.insertAdjacentHTML('beforeend',`<div class="report-box good" style="margin-top:10px;">${text}</div>`);
+  const balance=(info.unevenAfter===0)
+    ? ' وحصص كل شعبة موزعة بتوازن على أيام الأسبوع، فلا يتكدس الفراغ في يوم واحد.'
+    : (info.unevenAfter!==undefined ? ` بقي يوم قصير في ${toArabicNum(info.unevenAfter)} شعبة بسبب كتل العملي أو تفرغ المدرسين.` : '');
+  box.insertAdjacentHTML('beforeend',`<div class="report-box good" style="margin-top:10px;">${text}${balance}</div>`);
 }
 function acceptRelaxedGeneration(){
   const pending=PENDING_RELAXED_GENERATION;
@@ -9101,6 +9170,27 @@ function mulberry32(a){
 /* قاعدة عدم تكرار المادة النظرية في اليوم نفسه للشعبة نفسها:
    حصة واحدة يومياً ما دام نصابها النظري لا يتجاوز أيام الأسبوع؛ وإذا تجاوزها (7 حصص في 6 أيام)
    فالحد الأدنى الممكن رياضياً ceil(n/D). المواد المفعّل لها «أزواج النظري» مستثناة لأنها مزدوجة عمداً. */
+/* أقل عدد حصص مقبول في يوم الشعبة كي لا تتكدس فراغاتها في يوم واحد:
+   نسمح ليوم واحد بأن يأخذ حدها الكامل (كتلة عملي طويلة مثلاً)، ويُقسم الباقي على بقية الأيام.
+   مثال: 34 حصة، 5 أيام، حد 8 ← (34-8)/4 = 6.5 ← لا يقل أي يوم عن 6. */
+function classMinDailyLessons(plan, dayCount, periods, practicalCap){
+  const D=Math.max(1,Number(dayCount)||1);
+  const total=(Array.isArray(plan)?plan:[]).reduce((s,r)=>s+Math.max(0,Number(r&&r[1])||0)+Math.max(0,Number(r&&r[2])||0),0);
+  const limit=classDailyPeriodLimit(plan,D,periods,practicalCap);
+  if(!total||!limit) return 0;
+  if(D===1) return Math.min(total,limit);
+  return Math.max(0,Math.min(limit,Math.floor((total-limit)/(D-1))));
+}
+function unbalancedClassDays(input, schedules, practicalCap){
+  const data=input||{}, days=data.days||[], P=Number(data.periods)||0, out=[];
+  (data.classes||[]).forEach(cls=>{
+    const low=classMinDailyLessons(cls.plan,days.length,P,practicalCap); if(!low) return;
+    const sc=(schedules||{})[cls.id]||{};
+    days.forEach(day=>{ let n=0; for(let p=1;p<=P;p++){ const c=sc[day+'-'+p]; if(c&&c.subject) n++; } if(n<low) out.push({classId:cls.id,day,count:n,min:low}); });
+  });
+  return out;
+}
+
 function sameDayTheoryCap(theoryCount, dayCount){
   return Math.max(1, Math.ceil((Number(theoryCount)||0) / Math.max(1, Number(dayCount)||0)));
 }
