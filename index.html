@@ -3894,13 +3894,15 @@ function theoryTeacherNamesFor(classId, subject, source){
 }
 function practicalTeacherNamesFor(classId, subject, source){
   const team=assignmentRuleFor(classId,subject,source).practicalCoTeachers;
+  /* مدرسان = فريق متزامن؛ مدرس واحد = مدرس العملي المستقل عن مدرس النظري (شائع في التعليم المهني). */
   if(team.length===2) return team;
+  if(team.length===1) return [team[0]];
   const name=primaryAssignmentTeacher(classId,subject,source);
   return name?[name]:[];
 }
 function hasIncompletePracticalTeam(classId, subject, source){
-  const team=assignmentRuleFor(classId,subject,source).practicalCoTeachers;
-  return team.length===1;
+  /* لم يعد اختيار مدرس عملي واحد «فريقاً ناقصاً»: هو مدرس العملي المستقل للمادة. */
+  return false;
 }
 function theoryPairsEnabledFor(classId, subject, source){ return !!assignmentRuleFor(classId,subject,source).theoryPairs; }
 function assignmentTeacherNamesFor(classId, subject, type, source){
@@ -7214,15 +7216,15 @@ function renderAssignments(){
     `<option value="${attrEsc(n)}"${n === current ? ' selected' : ''}>${esc(n)}</option>`).join('');
   const covered=plan.filter(row=>assignmentCoverageFor(classId,row,STATE).complete).length;
   wrap.innerHTML = `
-    <div class="assignment-note note">اختر مدرس النظري (وهو مدرس العملي المفرد عند عدم اختيار فريق). للمادة العملية يمكنك اختيار <b>مدرسين مختلفين</b>؛ يُحجزان معاً في كل حصة عملية. فعّل «أزواج النظري» فقط إذا أردت حصتين نظريتين متجاورتين لكل زوج.</div>
+    <div class="assignment-note note">اختر مدرس النظري. في عمود العملي: اتركه فارغاً ليدرّس مدرس النظري العملي أيضاً، أو اختر <b>مدرساً واحداً</b> ليكون مدرس العملي المستقل، أو <b>مدرسين</b> ليُحجزا معاً في كل حصة عملية. فعّل «أزواج النظري» فقط إذا أردت حصتين نظريتين متجاورتين لكل زوج.</div>
     <div class="meta" style="margin-bottom:6px;">الشعبة: <b>${esc(cls.name)}</b> — مكتمل إسناد ${toArabicNum(covered)} من ${toArabicNum(plan.length)} مادة</div>
     <div class="grid-wrap"><table class="assign-table">
-      <tr><th>المادة</th><th>نظري</th><th>تطبيقي</th><th>مدرس النظري / المفرد</th><th>فريق العملي المتزامن</th><th>أزواج النظري</th></tr>
+      <tr><th>المادة</th><th>نظري</th><th>تطبيقي</th><th>مدرس المادة / النظري</th><th>مدرس العملي (واحد أو فريق)</th><th>أزواج النظري</th></tr>
       ${plan.map(r => {
         const subject=String(r[0]||''), theory=Math.max(0,Number(r[1])||0), practical=Math.max(0,Number(r[2])||0);
         const rule=assignmentRuleFor(classId,subject,STATE), team=rule.practicalCoTeachers;
         const teamHtml=practical
-          ? `<div class="assignment-team" data-assign-subject-row="${attrEsc(subject)}"><select aria-label="المدرس العملي الأول لمادة ${attrEsc(subject)}" data-class="${attrEsc(classId)}" data-subject="${attrEsc(subject)}" data-assignment-field="practical-0">${optionsFor(team[0]||'')}</select><select aria-label="المدرس العملي الثاني لمادة ${attrEsc(subject)}" data-class="${attrEsc(classId)}" data-subject="${attrEsc(subject)}" data-assignment-field="practical-1">${optionsFor(team[1]||'')}</select></div><small class="assignment-team-hint">${team.length===2?'تدريس مشترك':'اختياري — اتركهما فارغين لمدرس واحد'}</small>`
+          ? `<div class="assignment-team" data-assign-subject-row="${attrEsc(subject)}"><select aria-label="المدرس العملي الأول لمادة ${attrEsc(subject)}" data-class="${attrEsc(classId)}" data-subject="${attrEsc(subject)}" data-assignment-field="practical-0">${optionsFor(team[0]||'')}</select><select aria-label="المدرس العملي الثاني لمادة ${attrEsc(subject)}" data-class="${attrEsc(classId)}" data-subject="${attrEsc(subject)}" data-assignment-field="practical-1">${optionsFor(team[1]||'')}</select></div><small class="assignment-team-hint">${team.length===2?'تدريس مشترك (فريق متزامن)':team.length===1?(theory?'مدرس عملي مستقل عن النظري':'مدرس العملي لهذه المادة'):(theory?'اختياري — فارغ: مدرس النظري يدرّس العملي':'اختياري — فارغ: مدرس المادة يدرّس العملي')}</small>`
           : '<span class="meta">—</span>';
         const pairHtml=theory
           ? `<label class="assignment-pair-check"><input type="checkbox" data-class="${attrEsc(classId)}" data-subject="${attrEsc(subject)}" data-assignment-field="theory-pairs" ${rule.theoryPairs?'checked':''}> <span>${rule.theoryPairs?'مفعّل':'تفعيل'}</span></label>`
@@ -7406,7 +7408,7 @@ function autoBalanceAssignments(options){
     const explicitTeam=assignmentRuleFor(cls.id,subject,source).practicalCoTeachers;
     /* فريق عملي مكتمل هو قرار المستخدم ولا يجوز للموازنة استبداله بمدرس منفرد.
        نحسب حمل كل عضو، أما النظري (إن وجد) فيظل قابلاً للموازنة بصورة مستقلة. */
-    if(practical && explicitTeam.length===2){
+    if(practical && explicitTeam.length>=1){
       fixedPracticalTeams.push({cid:cls.id,subj:subject,n:practical,teachers:explicitTeam.slice(),limit:classLimits[cls.id]});
       if(theory) items.push({cid:cls.id,subj:subject,n:theory,practical:0,limit:classLimits[cls.id],type:'theory',coPractical:true});
     }else{
@@ -7909,6 +7911,11 @@ function runGenerator(newSeed){
   Object.keys(STATE.assignmentRules||{}).forEach(cid=>Object.keys(STATE.assignmentRules[cid]||{}).forEach(subject=>{
     const rule=STATE.assignmentRules[cid][subject], team=uniqueTeacherNames(rule&&rule.practicalCoTeachers);
     if(team.length!==1 || primaryAssignmentTeacher(cid,subject)) return;
+    /* مادة فيها نظري: المدرس الوحيد في عمود العملي هو مدرس العملي المستقل، فلا يُنقل إلى النظري تلقائياً
+       (كان ذلك يغيّر اسم مدرس النظري عند التوليد). الترقية تبقى للمواد العملية فقط. */
+    const cls=STATE.classes.find(c=>c.id===cid);
+    const row=cls ? (getPlan(cls.branch,cls.spec,cls.year)||[]).find(r=>r&&r[0]===subject) : null;
+    if(row && (Number(row[1])||0)>0) return;
     if(!STATE.assignments[cid]) STATE.assignments[cid]={};
     STATE.assignments[cid][subject]=team[0];
     delete rule.practicalCoTeachers; cleanupAssignmentRule(cid,subject); promotedSingles++;
@@ -8768,7 +8775,9 @@ function generationIssuePresentation(issue){
       return {
         icon:'🧪', title:'كتل العملي لمدرس واحد لا تتسع في الأسبوع', teacher,
         where:`الموضع: إسناد المواد ← المدرس «${teacher}»`,
-        body:`مجموع نصاب «${teacher}» العملي هو ${n(issue.required)} حصة، لكنه موزع إلى كتل متصلة (${blocks}) لا يمكن تعبئتها في ${n(issue.days)} أيام بحد ${n(issue.periods)} حصص في اليوم، حتى لو بدا مجموع الساعات ضمن السعة العامة.`,
+        body:issue.limitBound
+          ? `مجموع نصاب «${teacher}» العملي هو ${n(issue.required)} حصة، موزعة إلى كتل متصلة (${blocks}). الحد اليومي لكل شعبة من شعبه ${n(issue.periods)} حصص، فلا تجتمع عنده كتلتان لشعبتين مختلفتين في يوم واحد، ويجب أن يفصل يوم دراسي بين كتلتي الشعبة نفسها؛ لذلك لا تتسع هذه الكتل في ${n(issue.days)} أيام.`
+          : `مجموع نصاب «${teacher}» العملي هو ${n(issue.required)} حصة، لكنه موزع إلى كتل متصلة (${blocks}) لا يمكن تعبئتها في ${n(issue.days)} أيام بحد ${n(issue.periods)} حصص في اليوم، حتى لو بدا مجموع الساعات ضمن السعة العامة.`,
         fix:`${suggestion} لا يكفي تغيير النصاب وحده؛ يجب تخفيف توزيع الكتل على هذا المدرس.`,
         facts:[`المدرس: ${teacher}`,`الكتل: ${blocks||'—'}`,`السعة اليومية: ${n(issue.periods)} حصص`].concat(taskFacts),
         action:'assignments', actionLabel:'فتح إسناد المواد', classId:issue.suggestedClassId||''
@@ -9835,6 +9844,43 @@ function practicalDaysHaveRequiredBreak(dayIndexes){
    في خمسة أيام لأن كل كتلة 8 تحجز يومها. نحل مسألة تعبئة صغيرة بدقة؛
    تجاهل فاصل الأيام وتفرغ المدرس هنا يجعل الاختبار متساهلاً، لذا لا نبلغ
    بالمشكلة إلا عندما تكون الاستحالة مؤكدة حتى في هذه الصورة المتساهلة. */
+/* فحص دقيق لكتل عملي مدرس واحد: كل كتلة تقع كاملة داخل الحد اليومي لشعبتها (لا ضمن P فقط)،
+   ولا تتداخل كتل المدرس في اليوم نفسه، وكتل المادة الواحدة للشعبة نفسها تفصلها أيام دراسية.
+   تجاهلنا قيود الشعبة مع المدرسين الآخرين عمداً، فالنتيجة false برهان على الاستحالة. */
+function practicalTeacherExactPack(groups, dayCount, periods, offDayIdx, offPeriods){
+  const D=Math.max(0,Number(dayCount)||0), P=Math.max(0,Number(periods)||0);
+  const items=[];
+  (groups||[]).forEach((g,gi)=>(g.blocks||[]).forEach(len=>items.push({g:gi,len:Number(len)||0,limit:Math.min(P,Number(g.limit)||P)})));
+  if(!items.length) return true;
+  if(items.length>24) return null;
+  items.sort((a,b)=>b.len-a.len||a.g-b.g);
+  const off=new Set((offPeriods||[]).map(Number)), offDays=new Set(offDayIdx||[]);
+  const busy=Array.from({length:D},()=>new Array(P+1).fill(false));
+  const groupDays=(groups||[]).map(()=>[]);
+  let visits=0, unknown=false;
+  const fits=(d,start,len)=>{ for(let p=start;p<start+len;p++){ if(busy[d][p]||off.has(p)) return false; } return true; };
+  const visit=i=>{
+    if(++visits>200000){ unknown=true; return false; }
+    if(i>=items.length) return true;
+    const it=items[i];
+    for(let d=0;d<D;d++){
+      if(offDays.has(d)) continue;
+      if(groupDays[it.g].some(x=>Math.abs(x-d)<=PRACTICAL_MIN_FREE_DAYS)) continue;
+      for(let start=1;start+it.len-1<=it.limit;start++){
+        if(!fits(d,start,it.len)) continue;
+        for(let p=start;p<start+it.len;p++) busy[d][p]=true;
+        groupDays[it.g].push(d);
+        if(visit(i+1)) return true;
+        groupDays[it.g].pop();
+        for(let p=start;p<start+it.len;p++) busy[d][p]=false;
+        if(unknown) return false;
+      }
+    }
+    return false;
+  };
+  const ok=visit(0);
+  return unknown ? null : ok;
+}
 function canPackPracticalTeacherBlocks(blocks, dayCount, slotsPerDay){
   const items=(Array.isArray(blocks)?blocks:[]).map(Number).filter(n=>Number.isFinite(n)&&n>0).sort((a,b)=>b-a);
   const days=Math.max(0,Number(dayCount)||0), cap=Math.max(0,Number(slotsPerDay)||0);
@@ -10304,15 +10350,23 @@ function generateTimetable(input, options){
     const src=((input&&input.teachers)||[]).find(x=>String((x&&x.name)||'').trim()===teacher)||{};
     const freeDays=Math.max(0,D-new Set((src.offDays||[]).map(String).filter(d=>days.includes(d))).size);
     const freeWidth=Math.max(0,P-new Set((src.offPeriods||[]).map(Number).filter(p=>p>=1&&p<=P)).size);
-    const packed=canPackPracticalTeacherBlocks(chunks,freeDays,freeWidth);
-    if(packed!==false) return;
+    let packed=canPackPracticalTeacherBlocks(chunks,freeDays,freeWidth), limitBound=false;
+    if(packed!==false){
+      const offIdx=(src.offDays||[]).map(d=>days.indexOf(String(d))).filter(i=>i>=0);
+      const exact=practicalTeacherExactPack(tasks.map(task=>({blocks:task.blocks,limit:periodLimitOf(task.classId)||P})),D,P,offIdx,src.offPeriods||[]);
+      if(exact!==false) return;
+      packed=false; limitBound=true;
+    }
     const total=chunks.reduce((sum,n)=>sum+n,0);
     const suggested=tasks.slice().sort((a,b)=>b.practical-a.practical||String(a.className).localeCompare(String(b.className),'ar'))[0]||{};
     const blockText=chunks.slice().sort((a,b)=>b-a).join(' + ');
-    const message=`الكتل العملية المسندة للمدرس «${teacher}» لا تتسع في أيامه المتاحة (${freeDays} من ${D}) ضمن ${freeWidth} حصص يومياً (${blockText} = ${total} حصة)؛ الكتلتان الطويلتان لا تجتمعان في يوم واحد`;
+    const classLimit=Math.min(...tasks.map(task=>periodLimitOf(task.classId)||P));
+    const message=limitBound
+      ? `الكتل العملية المسندة للمدرس «${teacher}» (${blockText} = ${total} حصة) لا تتسع في ${freeDays} أيام: الحد اليومي لشعبه ${classLimit} حصص، فلا تجتمع كتلتان لشعبتين في يوم واحد، ويجب أن يفصل يوم دراسي بين كتلتي الشعبة نفسها`
+      : `الكتل العملية المسندة للمدرس «${teacher}» لا تتسع في أيامه المتاحة (${freeDays} من ${D}) ضمن ${freeWidth} حصص يومياً (${blockText} = ${total} حصة)؛ الكتلتان الطويلتان لا تجتمعان في يوم واحد`;
     infeasible.push(message);
     blockers.push({
-      kind:'teacher-practical-packing', teacher, required:total, days:D, periods:P, blocks:chunks.slice().sort((a,b)=>b-a),
+      kind:'teacher-practical-packing', teacher, required:total, days:freeDays, periods:limitBound?classLimit:freeWidth, limitBound, blocks:chunks.slice().sort((a,b)=>b-a),
       tasks:tasks.map(task=>({classId:task.classId,className:task.className,subject:task.subject,practical:task.practical,blocks:task.blocks.slice()})),
       classId:suggested.classId||'', className:suggested.className||'', subject:suggested.subject||'', type:'تطبيقي',
       suggestedClassId:suggested.classId||'', suggestedClassName:suggested.className||'', suggestedSubject:suggested.subject||'', message
@@ -15935,6 +15989,32 @@ window.VTS_I18N_DATA=window.VTS_I18N_DATA.concat([
 ["الآن الحصة #","Now: period #","ئێستا: وانەی #"],
 ["# حصة فراغ","# free periods","# وانەی بەتاڵ"]
 ]);
+window.VTS_I18N_DATA=window.VTS_I18N_DATA.concat([
+["مدرس النظري","Theory teacher","مامۆستای تیۆری"],
+["مدرس العملي (واحد أو فريق)","Practical teacher (one or a team)","مامۆستای پراکتیکی (یەک یان تیم)"],
+["تدريس مشترك (فريق متزامن)","Co-teaching (simultaneous team)","وانەوتنەوەی هاوبەش (تیمی هاوکات)"],
+["مدرس عملي مستقل عن النظري","Separate practical teacher","مامۆستای پراکتیکیی جیا لە تیۆری"],
+["اختياري — فارغ: مدرس النظري يدرّس العملي","Optional — empty: the theory teacher teaches practical too","هەڵبژاردەیی — بەتاڵ: مامۆستای تیۆری پراکتیکیش دەڵێتەوە"],
+["اختر مدرس النظري. في عمود العملي: اتركه فارغاً ليدرّس مدرس النظري العملي أيضاً، أو اختر","Choose the theory teacher. In the practical column: leave it empty so the theory teacher also teaches practical, or choose","مامۆستای تیۆری هەڵبژێرە. لە ستوونی پراکتیکیدا: بەتاڵی بهێڵەوە تا مامۆستای تیۆری پراکتیکیش بڵێتەوە، یان هەڵبژێرە"],
+["مدرساً واحداً","one teacher","یەک مامۆستا"],
+["ليكون مدرس العملي المستقل، أو","to be the separate practical teacher, or","تا ببێتە مامۆستای پراکتیکیی جیا، یان"],
+["مدرسين","two teachers","دوو مامۆستا"],
+["ليُحجزا معاً في كل حصة عملية.","to be booked together in every practical period.","تا لە هەموو وانەیەکی پراکتیکیدا پێکەوە دابنرێن."]
+]);
+window.VTS_I18N_DATA=window.VTS_I18N_DATA.concat([
+["مدرس المادة / النظري","Subject / theory teacher","مامۆستای بابەت / تیۆری"],
+["مدرس العملي لهذه المادة","Practical teacher for this subject","مامۆستای پراکتیکیی ئەم بابەتە"],
+["اختياري — فارغ: مدرس المادة يدرّس العملي","Optional — empty: the subject teacher teaches practical","هەڵبژاردەیی — بەتاڵ: مامۆستای بابەت پراکتیکی دەڵێتەوە"]
+]);
+window.VTS_I18N_DATA=window.VTS_I18N_DATA.concat([
+["فعّل «أزواج النظري» فقط إذا أردت حصتين نظريتين متجاورتين لكل زوج.","Enable \"Theory pairs\" only if you want two adjacent theory periods per pair.","«جووتی تیۆری» تەنها چالاک بکە ئەگەر دوو وانەی تیۆریی تەنیشت یەکت دەوێت بۆ هەر جووتێک."],
+["المادة","Subject","بابەت"]
+]);
+window.VTS_I18N_DATA=window.VTS_I18N_DATA.concat([
+["مجموع نصاب","Total practical load of","کۆی بڕی پراکتیکیی"],
+["العملي هو # حصة، موزعة إلى كتل متصلة","is # periods, split into consecutive blocks","# وانەیە، دابەشکراوە بۆ بلۆکی بەیەکەوە بەستراو"],
+["الحد اليومي لكل شعبة من شعبه # حصص، فلا تجتمع عنده كتلتان لشعبتين مختلفتين في يوم واحد، ويجب أن يفصل يوم دراسي بين كتلتي الشعبة نفسها؛ لذلك لا تتسع هذه الكتل في # أيام.","Each of their sections has a daily limit of # periods, so two blocks for different sections cannot share one day with this teacher, and a school day must separate the two blocks of the same section; so these blocks do not fit in # days.","سنووری ڕۆژانەی هەر پۆلێکی # وانەیە، بۆیە دوو بلۆکی دوو پۆلی جیاواز لە یەک ڕۆژدا لای ئەم مامۆستایە جێیان نابێتەوە، و دەبێت ڕۆژێکی خوێندن نێوان دوو بلۆکی هەمان پۆل جیا بکاتەوە؛ بۆیە ئەم بلۆکانە لە # ڕۆژدا جێیان نابێتەوە."]
+]);
 
 </script>
 <script>
@@ -15983,8 +16063,10 @@ window.VTS_I18N_DATA=window.VTS_I18N_DATA.concat([
   function ruleSeg(core){
     var m = core.match(/^(الأول|الأولى|الثاني|الثانية|الثالث|الثالثة|الرابع|الرابعة|الخامس|الخامسة|السادس|السادسة)(?: (أ|ا|ب|ج|د|هـ|ه|و|ز|ح))?$/);
     if(m){ var n=ORD[m[1]]; if(EN) return ORD_EN[n]+(m[2]?' '+LET_EN[m[2]]:''); return ORD_CKB[n]+(m[2]?' '+m[2]:''); }
-    m = core.match(/^(المدرّس|المدرس|الشعبة|المادة) (.+)$/);
-    if(m && DICT[keyOf(m[2])]==null){ var lab={'المدرّس':['Teacher','مامۆستا'],'المدرس':['Teacher','مامۆستا'],'الشعبة':['Section','پۆلی'],'المادة':['Subject','بابەتی']}[m[1]]; return (EN?lab[0]:lab[1])+' '+(seg(m[2])||m[2]); }
+    m = core.match(/^(المدرّس|المدرس) ([أم]\. .+)$/);
+    if(m) return (EN?'Teacher':'مامۆستا')+' '+m[2];
+    m = core.match(/^([^\u0621-\u064A]+) إلى ([^\u0621-\u064A]+)$/);
+    if(m) return localDigits(m[1])+(EN?' to ':' بۆ ')+localDigits(m[2]);
     m = core.match(/^([0-9\u0660-\u0669]+) (ص|م)$/);
     if(m) return localDigits(m[1])+' '+(m[2]==='ص'?(EN?'AM':'پ.ن'):(EN?'PM':'د.ن'));
     m = core.match(/^(السبت|الأحد|الاثنين|الثلاثاء|الأربعاء|الخميس|الجمعة) (.+)$/);
