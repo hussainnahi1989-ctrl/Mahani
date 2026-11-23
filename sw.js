@@ -1,5 +1,5 @@
 /* ===== Service Worker — يجعل التطبيق يعمل أوفلاين وقابل للتثبيت ===== */
-const VERSION = 'mahani-v23-20261015';
+const VERSION = 'mahani-v24-20261123';
 const PRECACHE = [
   './',
   './index.html',
@@ -25,7 +25,8 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== VERSION && k !== CDN_CACHE).map(k => caches.delete(k)));
+    /* نحذف فقط نسخ «مهني» القديمة — الموقع مشترك مع الجدول والدرجات ولكل منهم نسخته المحفوظة */
+    await Promise.all(keys.filter(k => k.indexOf('mahani-') === 0 && k !== VERSION && k !== CDN_CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
